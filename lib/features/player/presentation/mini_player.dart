@@ -1,0 +1,170 @@
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/theme/app_colors.dart';
+import '../../rooms/data/room_session_controller.dart';
+import '../data/playback_controller.dart';
+
+class MiniPlayer extends ConsumerWidget {
+  const MiniPlayer({super.key, this.embedded = false});
+
+  final bool embedded;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final palette = AppColors.of(context);
+    final controller = ref.watch(playbackControllerProvider);
+    final controlsLocked = ref
+        .watch(roomSessionControllerProvider)
+        .controlsLocked;
+
+    return ValueListenableBuilder(
+      valueListenable: controller.notifier,
+      builder: (context, snapshot, child) {
+        final track = snapshot.currentTrack;
+        if (track == null) {
+          return const SizedBox.shrink();
+        }
+
+        final durationMs = snapshot.duration?.inMilliseconds ?? 0;
+        final progress = durationMs <= 0
+            ? 0.0
+            : (snapshot.position.inMilliseconds / durationMs).clamp(0.0, 1.0);
+
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 420;
+
+            return Container(
+              margin: embedded
+                  ? EdgeInsets.zero
+                  : const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              decoration: BoxDecoration(
+                color: embedded
+                    ? Colors.transparent
+                    : palette.surfaceElevated.withAlpha(245),
+                borderRadius: BorderRadius.circular(24),
+                border: embedded ? null : Border.all(color: palette.border),
+              ),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(24),
+                onTap: () => context.push('/player'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
+                      child: LinearProgressIndicator(
+                        minHeight: 3,
+                        value: progress,
+                        backgroundColor: palette.surfaceInset,
+                        valueColor: AlwaysStoppedAnimation(palette.accent),
+                      ),
+                    ),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        compact ? 10 : 12,
+                        compact ? 10 : 12,
+                        compact ? 10 : 12,
+                        compact ? 8 : 10,
+                      ),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: SizedBox(
+                              width: compact ? 46 : 52,
+                              height: compact ? 46 : 52,
+                              child: track.artworkUrl == null
+                                  ? ColoredBox(
+                                      color: palette.surfaceMuted,
+                                      child: Icon(
+                                        Icons.music_note,
+                                        color: palette.accent,
+                                      ),
+                                    )
+                                  : CachedNetworkImage(
+                                      imageUrl: track.artworkUrl!,
+                                      fit: BoxFit.cover,
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  track.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.titleMedium,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  controlsLocked
+                                      ? 'Listening with host control'
+                                      : track.artistNames,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (!compact)
+                            IconButton(
+                              onPressed: controlsLocked
+                                  ? null
+                                  : controller.skipPrevious,
+                              icon: const Icon(Icons.skip_previous_rounded),
+                            ),
+                          FilledButton.tonal(
+                            onPressed: controlsLocked
+                                ? null
+                                : controller.togglePlayPause,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: palette.accent.withAlpha(36),
+                              foregroundColor: palette.textPrimary,
+                              minimumSize: Size(
+                                compact ? 42 : 46,
+                                compact ? 42 : 46,
+                              ),
+                              padding: EdgeInsets.zero,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: Icon(
+                              snapshot.isPlaying
+                                  ? Icons.pause_rounded
+                                  : Icons.play_arrow_rounded,
+                            ),
+                          ),
+                          if (!compact)
+                            IconButton(
+                              onPressed: controlsLocked
+                                  ? null
+                                  : controller.skipNext,
+                              icon: const Icon(Icons.skip_next_rounded),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
