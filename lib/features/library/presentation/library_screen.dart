@@ -55,14 +55,14 @@ class LibraryScreen extends ConsumerWidget {
               final introCompact = narrowLayout || shortLayout;
               final sectionGap = wideLayout
                   ? (shortLayout ? 12.0 : 16.0)
-                  : (denseLayout ? 10.0 : 12.0);
+                  : (denseLayout ? 8.0 : 12.0);
 
               return Column(
                 children: [
                   Padding(
                     padding: EdgeInsets.fromLTRB(
                       narrowLayout ? 16 : 20,
-                      denseLayout ? 12 : (introCompact ? 16 : 18),
+                      denseLayout ? 10 : (introCompact ? 16 : 18),
                       narrowLayout ? 16 : 20,
                       0,
                     ),
@@ -259,16 +259,17 @@ class _LibraryOverviewPanel extends StatelessWidget {
       ];
 
       return GlassPanel(
-        padding: EdgeInsets.all(dense ? 12 : 14),
+        padding: EdgeInsets.all(dense ? 10 : 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
-                final itemWidth = (constraints.maxWidth - 10) / 2;
+                final spacing = dense ? 8.0 : 10.0;
+                final itemWidth = (constraints.maxWidth - spacing) / 2;
                 return Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
+                  spacing: spacing,
+                  runSpacing: spacing,
                   children: [
                     for (final entry in metricEntries)
                       SizedBox(
@@ -278,6 +279,7 @@ class _LibraryOverviewPanel extends StatelessWidget {
                           value: entry.$2,
                           icon: entry.$3,
                           compact: true,
+                          dense: dense,
                         ),
                       ),
                   ],
@@ -285,29 +287,31 @@ class _LibraryOverviewPanel extends StatelessWidget {
               },
             ),
             if (controlsLocked) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: dense ? 6 : 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
+                padding: EdgeInsets.symmetric(
+                  horizontal: dense ? 10 : 12,
+                  vertical: dense ? 8 : 10,
                 ),
                 decoration: BoxDecoration(
                   color: palette.surfaceInset,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(dense ? 14 : 16),
                   border: Border.all(color: palette.border),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.lock_outline_rounded,
-                      size: 18,
+                      size: dense ? 16 : 18,
                       color: palette.textSecondary,
                     ),
-                    const SizedBox(width: 8),
+                    SizedBox(width: dense ? 6 : 8),
                     Expanded(
                       child: Text(
                         'Room host is controlling playback right now.',
-                        style: Theme.of(context).textTheme.bodySmall,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: dense ? 11.5 : null,
+                        ),
                       ),
                     ),
                   ],
@@ -473,32 +477,34 @@ class _MetricChip extends StatelessWidget {
     required this.value,
     required this.icon,
     this.compact = false,
+    this.dense = false,
   });
 
   final String label;
   final String value;
   final IconData icon;
   final bool compact;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
     final palette = AppColors.of(context);
     return Container(
-      constraints: BoxConstraints(minHeight: compact ? 72 : 84),
+      constraints: BoxConstraints(minHeight: compact ? (dense ? 62 : 72) : 84),
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? 12 : 14,
-        vertical: compact ? 12 : 14,
+        horizontal: compact ? (dense ? 10 : 12) : 14,
+        vertical: compact ? (dense ? 10 : 12) : 14,
       ),
       decoration: BoxDecoration(
         color: palette.surfaceInset,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(compact && dense ? 16 : 18),
         border: Border.all(color: palette.border),
       ),
       child: compact
           ? Row(
               children: [
-                Icon(icon, size: 18, color: palette.accent),
-                const SizedBox(width: 10),
+                Icon(icon, size: dense ? 16 : 18, color: palette.accent),
+                SizedBox(width: dense ? 8 : 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -506,16 +512,16 @@ class _MetricChip extends StatelessWidget {
                     children: [
                       Text(
                         value,
-                        style: Theme.of(
-                          context,
-                        ).textTheme.headlineSmall?.copyWith(fontSize: 24),
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(fontSize: dense ? 20 : 24, height: 1),
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: dense ? 1 : 2),
                       Text(
                         label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: dense ? 11.5 : null,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -847,16 +853,16 @@ class _LibraryCompactHeader extends StatelessWidget {
     final theme = Theme.of(context);
 
     return GlassPanel(
-      padding: EdgeInsets.all(dense ? 12 : 14),
+      padding: EdgeInsets.all(dense ? 10 : 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
+                padding: EdgeInsets.symmetric(
+                  horizontal: dense ? 9 : 10,
+                  vertical: dense ? 5 : 6,
                 ),
                 decoration: BoxDecoration(
                   color: AppColors.of(context).accentSoft,
@@ -865,31 +871,40 @@ class _LibraryCompactHeader extends StatelessWidget {
                 child: Text(
                   'Library',
                   style: theme.textTheme.bodyMedium?.copyWith(
+                    fontSize: dense ? 13 : null,
                     fontWeight: FontWeight.w700,
                     color: AppColors.of(context).accent,
                   ),
                 ),
               ),
               const Spacer(),
-              const SizedBox(width: 10),
+              SizedBox(width: dense ? 8 : 10),
               IconButton.filledTonal(
                 onPressed: onCreatePlaylist,
                 icon: const Icon(Icons.playlist_add_rounded),
+                iconSize: dense ? 20 : 22,
+                visualDensity: VisualDensity.compact,
+                constraints: BoxConstraints.tightFor(
+                  width: dense ? 38 : 42,
+                  height: dense ? 38 : 42,
+                ),
               ),
             ],
           ),
-          SizedBox(height: dense ? 10 : 12),
+          SizedBox(height: dense ? 8 : 12),
           Text(
             'Everything you want to keep close.',
             style: theme.textTheme.headlineMedium?.copyWith(
-              fontSize: dense ? 24 : 26,
-              height: 1.04,
+              fontSize: dense ? 20 : 26,
+              height: dense ? 1.0 : 1.04,
             ),
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: dense ? 4 : 6),
           Text(
             'Liked songs, offline tracks, history, and playlists stay easy to reach.',
-            style: theme.textTheme.bodyMedium,
+            style:
+                (dense ? theme.textTheme.bodySmall : theme.textTheme.bodyMedium)
+                    ?.copyWith(height: 1.28),
           ),
         ],
       ),
