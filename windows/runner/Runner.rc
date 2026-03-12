@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.skybotsdeveloper" "\0"
-            VALUE "FileDescription", "aurex" "\0"
+            VALUE "CompanyName", "SkyBotsDeveloper" "\0"
+            VALUE "FileDescription", "Aurex" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "aurex" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.skybotsdeveloper. All rights reserved." "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 SkyBotsDeveloper. All rights reserved." "\0"
             VALUE "OriginalFilename", "aurex.exe" "\0"
-            VALUE "ProductName", "aurex" "\0"
+            VALUE "ProductName", "Aurex" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
