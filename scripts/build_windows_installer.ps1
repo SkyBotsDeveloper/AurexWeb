@@ -23,10 +23,25 @@ if (-not $SkipBuild) {
 }
 
 $isccCommand = Get-Command iscc -ErrorAction SilentlyContinue
-if (-not $isccCommand) {
+$iscc = $null
+if ($isccCommand) {
+  $iscc = $isccCommand.Source
+} else {
+  $fallbackPaths = @(
+    'C:\Program Files\Inno Setup 6\ISCC.exe',
+    'C:\Program Files (x86)\Inno Setup 6\ISCC.exe'
+  )
+  foreach ($candidate in $fallbackPaths) {
+    if (Test-Path $candidate) {
+      $iscc = $candidate
+      break
+    }
+  }
+}
+
+if (-not $iscc) {
   throw "Inno Setup Compiler (iscc.exe) was not found. Install Inno Setup 6, then rerun scripts\build_windows_installer.ps1"
 }
-$iscc = $isccCommand.Source
 
 New-Item -Path $outputDir -ItemType Directory -Force | Out-Null
 
