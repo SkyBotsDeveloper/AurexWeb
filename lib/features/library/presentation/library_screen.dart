@@ -55,14 +55,14 @@ class LibraryScreen extends ConsumerWidget {
               final introCompact = narrowLayout || shortLayout;
               final sectionGap = wideLayout
                   ? (shortLayout ? 12.0 : 16.0)
-                  : (denseLayout ? 6.0 : 12.0);
+                  : (denseLayout ? 4.0 : 12.0);
 
               return Column(
                 children: [
                   Padding(
                     padding: EdgeInsets.fromLTRB(
                       narrowLayout ? 16 : 20,
-                      denseLayout ? 8 : (introCompact ? 16 : 18),
+                      denseLayout ? 6 : (introCompact ? 16 : 18),
                       narrowLayout ? 16 : 20,
                       0,
                     ),
@@ -259,13 +259,13 @@ class _LibraryOverviewPanel extends StatelessWidget {
       ];
 
       return GlassPanel(
-        padding: EdgeInsets.all(dense ? 8 : 14),
+        padding: EdgeInsets.all(dense ? 6 : 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
-                final spacing = dense ? 6.0 : 10.0;
+                final spacing = dense ? 4.0 : 10.0;
                 final itemWidth = (constraints.maxWidth - spacing) / 2;
                 return Wrap(
                   spacing: spacing,
@@ -287,30 +287,30 @@ class _LibraryOverviewPanel extends StatelessWidget {
               },
             ),
             if (controlsLocked) ...[
-              SizedBox(height: dense ? 4 : 8),
+              SizedBox(height: dense ? 3 : 8),
               Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: dense ? 8 : 12,
-                  vertical: dense ? 7 : 10,
+                  horizontal: dense ? 7 : 12,
+                  vertical: dense ? 6 : 10,
                 ),
                 decoration: BoxDecoration(
                   color: palette.surfaceInset,
-                  borderRadius: BorderRadius.circular(dense ? 14 : 16),
+                  borderRadius: BorderRadius.circular(dense ? 12 : 16),
                   border: Border.all(color: palette.border),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.lock_outline_rounded,
-                      size: dense ? 16 : 18,
+                      size: dense ? 15 : 18,
                       color: palette.textSecondary,
                     ),
-                    SizedBox(width: dense ? 6 : 8),
+                    SizedBox(width: dense ? 5 : 8),
                     Expanded(
                       child: Text(
                         'Room host is controlling playback right now.',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: dense ? 11.5 : null,
+                          fontSize: dense ? 10.5 : null,
                         ),
                       ),
                     ),
@@ -419,10 +419,10 @@ class _LibraryTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.all(narrow ? 6 : 8),
+      padding: EdgeInsets.all(narrow ? 4 : 8),
       decoration: BoxDecoration(
         color: palette.surfaceInset,
-        borderRadius: BorderRadius.circular(narrow ? 20 : 22),
+        borderRadius: BorderRadius.circular(narrow ? 18 : 22),
         border: Border.all(color: palette.border),
       ),
       child: TabBar(
@@ -442,28 +442,28 @@ class _LibraryTabs extends StatelessWidget {
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
           color: palette.accentSoft,
-          borderRadius: BorderRadius.circular(narrow ? 14 : 16),
+          borderRadius: BorderRadius.circular(narrow ? 12 : 16),
           border: Border.all(color: palette.border),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         tabs: [
           Tab(
-            height: narrow ? 42 : (compact ? 54 : 58),
+            height: narrow ? 40 : (compact ? 54 : 58),
             icon: Icon(Icons.favorite_rounded, size: narrow ? 16 : 18),
             text: 'Liked',
           ),
           Tab(
-            height: narrow ? 42 : (compact ? 54 : 58),
+            height: narrow ? 40 : (compact ? 54 : 58),
             icon: Icon(Icons.download_done_rounded, size: narrow ? 16 : 18),
             text: 'Downloads',
           ),
           Tab(
-            height: narrow ? 42 : (compact ? 54 : 58),
+            height: narrow ? 40 : (compact ? 54 : 58),
             icon: Icon(Icons.history_rounded, size: narrow ? 16 : 18),
             text: 'History',
           ),
           Tab(
-            height: narrow ? 42 : (compact ? 54 : 58),
+            height: narrow ? 40 : (compact ? 54 : 58),
             icon: Icon(Icons.queue_music_rounded, size: narrow ? 16 : 18),
             text: 'Playlists',
           ),
@@ -492,21 +492,21 @@ class _MetricChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = AppColors.of(context);
     return Container(
-      constraints: BoxConstraints(minHeight: compact ? (dense ? 62 : 72) : 84),
+      constraints: BoxConstraints(minHeight: compact ? (dense ? 54 : 72) : 84),
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? (dense ? 9 : 12) : 14,
-        vertical: compact ? (dense ? 8 : 12) : 14,
+        horizontal: compact ? (dense ? 8 : 12) : 14,
+        vertical: compact ? (dense ? 6 : 12) : 14,
       ),
       decoration: BoxDecoration(
         color: palette.surfaceInset,
-        borderRadius: BorderRadius.circular(compact && dense ? 16 : 18),
+        borderRadius: BorderRadius.circular(compact && dense ? 14 : 18),
         border: Border.all(color: palette.border),
       ),
       child: compact
           ? Row(
               children: [
-                Icon(icon, size: dense ? 16 : 18, color: palette.accent),
-                SizedBox(width: dense ? 7 : 10),
+                Icon(icon, size: dense ? 14 : 18, color: palette.accent),
+                SizedBox(width: dense ? 6 : 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -515,7 +515,7 @@ class _MetricChip extends StatelessWidget {
                       Text(
                         value,
                         style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontSize: dense ? 18 : 24, height: 1),
+                            ?.copyWith(fontSize: dense ? 16 : 24, height: 1),
                       ),
                       SizedBox(height: dense ? 0 : 2),
                       Text(
@@ -523,7 +523,7 @@ class _MetricChip extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: dense ? 11 : null,
+                          fontSize: dense ? 10 : null,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -855,7 +855,7 @@ class _LibraryCompactHeader extends StatelessWidget {
     final theme = Theme.of(context);
 
     return GlassPanel(
-      padding: EdgeInsets.all(dense ? 8 : 14),
+      padding: EdgeInsets.all(dense ? 6 : 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -863,7 +863,7 @@ class _LibraryCompactHeader extends StatelessWidget {
             children: [
               Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: dense ? 8 : 10,
+                  horizontal: dense ? 7 : 10,
                   vertical: dense ? 4 : 6,
                 ),
                 decoration: BoxDecoration(
@@ -873,7 +873,7 @@ class _LibraryCompactHeader extends StatelessWidget {
                 child: Text(
                   'Library',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    fontSize: dense ? 12 : null,
+                    fontSize: dense ? 11 : null,
                     fontWeight: FontWeight.w700,
                     color: AppColors.of(context).accent,
                   ),
@@ -884,29 +884,29 @@ class _LibraryCompactHeader extends StatelessWidget {
               IconButton.filledTonal(
                 onPressed: onCreatePlaylist,
                 icon: const Icon(Icons.playlist_add_rounded),
-                iconSize: dense ? 18 : 22,
+                iconSize: dense ? 17 : 22,
                 visualDensity: VisualDensity.compact,
                 constraints: BoxConstraints.tightFor(
-                  width: dense ? 34 : 42,
-                  height: dense ? 34 : 42,
+                  width: dense ? 32 : 42,
+                  height: dense ? 32 : 42,
                 ),
               ),
             ],
           ),
-          SizedBox(height: dense ? 6 : 12),
+          SizedBox(height: dense ? 4 : 12),
           Text(
             'Everything you want to keep close.',
             style: theme.textTheme.headlineMedium?.copyWith(
-              fontSize: dense ? 18 : 26,
+              fontSize: dense ? 17 : 26,
               height: dense ? 1.0 : 1.04,
             ),
           ),
-          SizedBox(height: dense ? 2 : 6),
+          SizedBox(height: dense ? 1 : 6),
           Text(
             'Liked songs, offline tracks, history, and playlists stay easy to reach.',
             style:
                 (dense ? theme.textTheme.bodySmall : theme.textTheme.bodyMedium)
-                    ?.copyWith(fontSize: dense ? 12 : null, height: 1.2),
+                    ?.copyWith(fontSize: dense ? 11 : null, height: 1.15),
           ),
         ],
       ),
