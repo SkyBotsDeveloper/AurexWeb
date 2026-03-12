@@ -48,7 +48,7 @@ class AppNavigationRail extends ConsumerWidget {
                   ),
                   padding: const EdgeInsets.all(9),
                   child: Image.asset(
-                    'assets/branding/aurex_logo_square.png',
+                    'assets/branding/aurex_mark.png',
                     fit: BoxFit.contain,
                   ),
                 ),

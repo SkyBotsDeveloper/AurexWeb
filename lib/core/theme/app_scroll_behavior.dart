@@ -22,6 +22,7 @@ class AurexScrollBehavior extends MaterialScrollBehavior {
     ScrollableDetails details,
   ) {
     final platform = getPlatform(context);
+    final width = MediaQuery.sizeOf(context).width;
     final desktopLike =
         kIsWeb ||
         platform == TargetPlatform.windows ||
@@ -35,7 +36,10 @@ class AurexScrollBehavior extends MaterialScrollBehavior {
     return Scrollbar(
       controller: details.controller,
       thumbVisibility: true,
+      trackVisibility: true,
       interactive: true,
+      thickness: width < 720 ? 16 : 13,
+      radius: const Radius.circular(999),
       child: child,
     );
   }

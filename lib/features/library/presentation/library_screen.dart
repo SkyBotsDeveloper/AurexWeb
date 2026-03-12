@@ -152,21 +152,44 @@ class LibraryScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     Container(
-                      padding: const EdgeInsets.all(6),
+                      padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
                         color: palette.surfaceInset,
                         borderRadius: BorderRadius.circular(22),
                         border: Border.all(color: palette.border),
                       ),
-                      child: const TabBar(
+                      child: TabBar(
                         isScrollable: true,
                         tabAlignment: TabAlignment.start,
-                        labelPadding: EdgeInsets.symmetric(horizontal: 16),
-                        tabs: [
-                          Tab(text: 'Liked'),
-                          Tab(text: 'Downloads'),
-                          Tab(text: 'History'),
-                          Tab(text: 'Playlists'),
+                        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                        dividerColor: Colors.transparent,
+                        indicator: BoxDecoration(
+                          color: palette.accentSoft,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: palette.border),
+                        ),
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        tabs: const [
+                          Tab(
+                            height: 58,
+                            icon: Icon(Icons.favorite_rounded, size: 18),
+                            text: 'Liked',
+                          ),
+                          Tab(
+                            height: 58,
+                            icon: Icon(Icons.download_done_rounded, size: 18),
+                            text: 'Downloads',
+                          ),
+                          Tab(
+                            height: 58,
+                            icon: Icon(Icons.history_rounded, size: 18),
+                            text: 'History',
+                          ),
+                          Tab(
+                            height: 58,
+                            icon: Icon(Icons.queue_music_rounded, size: 18),
+                            text: 'Playlists',
+                          ),
                         ],
                       ),
                     ),
@@ -252,18 +275,35 @@ class _MetricChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = AppColors.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      constraints: const BoxConstraints(minHeight: 84),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       decoration: BoxDecoration(
         color: palette.surfaceInset,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: palette.border),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: palette.accent),
-          const SizedBox(width: 10),
-          Text('$value $label', style: Theme.of(context).textTheme.titleMedium),
+          Row(
+            children: [
+              Icon(icon, size: 18, color: palette.accent),
+              const Spacer(),
+              Text(
+                label,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            value,
+            style: Theme.of(
+              context,
+            ).textTheme.headlineMedium?.copyWith(fontSize: 28),
+          ),
         ],
       ),
     );
