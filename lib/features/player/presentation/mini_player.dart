@@ -35,7 +35,11 @@ class MiniPlayer extends ConsumerWidget {
 
         return LayoutBuilder(
           builder: (context, constraints) {
-            final compact = constraints.maxWidth < 420;
+            final viewport = MediaQuery.sizeOf(context);
+            final compact = constraints.maxWidth < 420 || viewport.height < 760;
+            final ultraCompact =
+                embedded &&
+                (constraints.maxWidth < 420 || viewport.height < 740);
 
             return Container(
               margin: embedded
@@ -67,18 +71,18 @@ class MiniPlayer extends ConsumerWidget {
                     ),
                     Padding(
                       padding: EdgeInsets.fromLTRB(
-                        compact ? 10 : 12,
-                        compact ? 10 : 12,
-                        compact ? 10 : 12,
-                        compact ? 8 : 10,
+                        ultraCompact ? 8 : (compact ? 10 : 12),
+                        ultraCompact ? 8 : (compact ? 10 : 12),
+                        ultraCompact ? 8 : (compact ? 10 : 12),
+                        ultraCompact ? 6 : (compact ? 8 : 10),
                       ),
                       child: Row(
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(16),
                             child: SizedBox(
-                              width: compact ? 46 : 52,
-                              height: compact ? 46 : 52,
+                              width: ultraCompact ? 42 : (compact ? 46 : 52),
+                              height: ultraCompact ? 42 : (compact ? 46 : 52),
                               child: track.artworkUrl == null
                                   ? ColoredBox(
                                       color: palette.surfaceMuted,
@@ -103,9 +107,10 @@ class MiniPlayer extends ConsumerWidget {
                                   track.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.titleMedium,
+                                  style: Theme.of(context).textTheme.titleMedium
+                                      ?.copyWith(
+                                        fontSize: ultraCompact ? 18 : null,
+                                      ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
@@ -114,7 +119,10 @@ class MiniPlayer extends ConsumerWidget {
                                       : track.artistNames,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodyMedium,
+                                  style: Theme.of(context).textTheme.bodyMedium
+                                      ?.copyWith(
+                                        fontSize: ultraCompact ? 13 : null,
+                                      ),
                                 ),
                               ],
                             ),
@@ -134,12 +142,14 @@ class MiniPlayer extends ConsumerWidget {
                               backgroundColor: palette.accent.withAlpha(36),
                               foregroundColor: palette.textPrimary,
                               minimumSize: Size(
-                                compact ? 42 : 46,
-                                compact ? 42 : 46,
+                                ultraCompact ? 38 : (compact ? 42 : 46),
+                                ultraCompact ? 38 : (compact ? 42 : 46),
                               ),
                               padding: EdgeInsets.zero,
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(
+                                  ultraCompact ? 14 : 16,
+                                ),
                               ),
                             ),
                             child: Icon(

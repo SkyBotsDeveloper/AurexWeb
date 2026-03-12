@@ -131,7 +131,9 @@ class _AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final controller = ref.watch(playbackControllerProvider);
     final palette = AppColors.of(context);
-    final width = MediaQuery.sizeOf(context).width;
+    final viewport = MediaQuery.sizeOf(context);
+    final width = viewport.width;
+    final compactBottomChrome = width < 430 || viewport.height < 780;
     final wideLayout = width >= 1120;
 
     return ValueListenableBuilder<PlaybackSnapshot>(
@@ -140,7 +142,9 @@ class _AppShell extends ConsumerWidget {
         final hasMiniPlayer = snapshot.currentTrack != null;
         final reservedBottomSpace = wideLayout
             ? 0.0
-            : (hasMiniPlayer ? 158.0 : 92.0);
+            : (hasMiniPlayer
+                  ? (compactBottomChrome ? 144.0 : 158.0)
+                  : (compactBottomChrome ? 82.0 : 92.0));
 
         if (wideLayout) {
           return Scaffold(
@@ -216,11 +220,18 @@ class _AppShell extends ConsumerWidget {
                 child: SafeArea(
                   top: false,
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    padding: EdgeInsets.fromLTRB(
+                      compactBottomChrome ? 10 : 12,
+                      0,
+                      compactBottomChrome ? 10 : 12,
+                      compactBottomChrome ? 10 : 12,
+                    ),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         gradient: palette.navGradient,
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: BorderRadius.circular(
+                          compactBottomChrome ? 26 : 30,
+                        ),
                         border: Border.all(color: palette.border),
                         boxShadow: [
                           BoxShadow(

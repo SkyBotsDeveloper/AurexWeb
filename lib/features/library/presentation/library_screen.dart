@@ -263,35 +263,29 @@ class _LibraryOverviewPanel extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              height: dense ? 102 : 112,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final chipWidth = constraints.maxWidth < 360 ? 134.0 : 146.0;
-                  return ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    itemBuilder: (context, index) {
-                      final entry = metricEntries[index];
-                      return SizedBox(
-                        width: chipWidth,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final itemWidth = (constraints.maxWidth - 10) / 2;
+                return Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    for (final entry in metricEntries)
+                      SizedBox(
+                        width: itemWidth,
                         child: _MetricChip(
                           label: entry.$1,
                           value: entry.$2,
                           icon: entry.$3,
                           compact: true,
                         ),
-                      );
-                    },
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(width: 10),
-                    itemCount: metricEntries.length,
-                  );
-                },
-              ),
+                      ),
+                  ],
+                );
+              },
             ),
             if (controlsLocked) ...[
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -431,6 +425,14 @@ class _LibraryTabs extends StatelessWidget {
         isScrollable: !wideLayout,
         tabAlignment: wideLayout ? null : TabAlignment.start,
         labelPadding: EdgeInsets.symmetric(horizontal: wideLayout ? 4 : 6),
+        labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+          fontSize: narrow ? 13 : 14,
+        ),
+        unselectedLabelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          fontSize: narrow ? 13 : 14,
+        ),
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
           color: palette.accentSoft,
@@ -440,22 +442,22 @@ class _LibraryTabs extends StatelessWidget {
         indicatorSize: TabBarIndicatorSize.tab,
         tabs: [
           Tab(
-            height: narrow ? 50 : (compact ? 54 : 58),
+            height: narrow ? 46 : (compact ? 54 : 58),
             icon: Icon(Icons.favorite_rounded, size: narrow ? 17 : 18),
             text: 'Liked',
           ),
           Tab(
-            height: narrow ? 50 : (compact ? 54 : 58),
+            height: narrow ? 46 : (compact ? 54 : 58),
             icon: Icon(Icons.download_done_rounded, size: narrow ? 17 : 18),
             text: 'Downloads',
           ),
           Tab(
-            height: narrow ? 50 : (compact ? 54 : 58),
+            height: narrow ? 46 : (compact ? 54 : 58),
             icon: Icon(Icons.history_rounded, size: narrow ? 17 : 18),
             text: 'History',
           ),
           Tab(
-            height: narrow ? 50 : (compact ? 54 : 58),
+            height: narrow ? 46 : (compact ? 54 : 58),
             icon: Icon(Icons.queue_music_rounded, size: narrow ? 17 : 18),
             text: 'Playlists',
           ),
@@ -492,30 +494,60 @@ class _MetricChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: palette.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: palette.accent),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-              ),
-            ],
-          ),
-          SizedBox(height: compact ? 10 : 14),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.headlineMedium?.copyWith(fontSize: compact ? 24 : 28),
-          ),
-        ],
-      ),
+      child: compact
+          ? Row(
+              children: [
+                Icon(icon, size: 18, color: palette.accent),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        value,
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineSmall?.copyWith(fontSize: 24),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(icon, size: 18, color: palette.accent),
+                    const SizedBox(width: 8),
+                    Text(
+                      label,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: compact ? 10 : 14),
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontSize: compact ? 24 : 28,
+                  ),
+                ),
+              ],
+            ),
     );
   }
 }
@@ -815,31 +847,30 @@ class _LibraryCompactHeader extends StatelessWidget {
     final theme = Theme.of(context);
 
     return GlassPanel(
-      padding: EdgeInsets.all(dense ? 14 : 16),
+      padding: EdgeInsets.all(dense ? 12 : 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.of(context).accentSoft,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    'Library',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.of(context).accent,
-                    ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.of(context).accentSoft,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  'Library',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.of(context).accent,
                   ),
                 ),
               ),
+              const Spacer(),
               const SizedBox(width: 10),
               IconButton.filledTonal(
                 onPressed: onCreatePlaylist,
@@ -847,17 +878,18 @@ class _LibraryCompactHeader extends StatelessWidget {
               ),
             ],
           ),
-          SizedBox(height: dense ? 12 : 14),
+          SizedBox(height: dense ? 10 : 12),
           Text(
             'Everything you want to keep close.',
             style: theme.textTheme.headlineMedium?.copyWith(
-              fontSize: dense ? 28 : 32,
+              fontSize: dense ? 24 : 26,
+              height: 1.04,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(
             'Liked songs, offline tracks, history, and playlists stay easy to reach.',
-            style: theme.textTheme.bodyLarge,
+            style: theme.textTheme.bodyMedium,
           ),
         ],
       ),
