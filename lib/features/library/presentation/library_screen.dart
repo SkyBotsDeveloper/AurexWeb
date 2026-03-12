@@ -46,184 +46,126 @@ class LibraryScreen extends ConsumerWidget {
       child: Scaffold(
         body: SafeArea(
           bottom: false,
-          child: Column(
-            children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(20, isCompact ? 18 : 16, 20, 0),
-                child: Column(
-                  children: [
-                    ScreenIntroPanel(
-                      compact: isCompact,
-                      eyebrow: 'Library',
-                      title: isCompact
-                          ? 'Everything you want to keep close.'
-                          : 'Keep saved music, downloads, history, and playlists in one place.',
-                      description: isCompact
-                          ? 'Liked songs, offline tracks, history, and playlists stay easy to reach.'
-                          : 'Move between saved songs, offline playback, listening history, and your own playlists without the layout getting in the way.',
-                      trailing: IconButton.filledTonal(
-                        onPressed: () => _createPlaylist(context, ref),
-                        icon: const Icon(Icons.playlist_add_rounded),
-                      ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final wideLayout = constraints.maxWidth >= 980;
+              final shortLayout = constraints.maxHeight < 860;
+              final introCompact = isCompact || shortLayout;
+              final sectionGap = shortLayout ? 12.0 : 16.0;
+
+              return Column(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      introCompact ? 16 : 18,
+                      20,
+                      0,
                     ),
-                    const SizedBox(height: 16),
-                    GlassPanel(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          LayoutBuilder(
-                            builder: (context, constraints) {
-                              final itemWidth = (constraints.maxWidth - 10) / 2;
-                              return Wrap(
-                                spacing: 10,
-                                runSpacing: 10,
-                                children: [
-                                  SizedBox(
-                                    width: itemWidth,
-                                    child: _MetricChip(
-                                      label: 'Liked',
-                                      value:
-                                          '${likedTracks.asData?.value.length ?? 0}',
-                                      icon: Icons.favorite_rounded,
+                    child: Column(
+                      children: [
+                        if (wideLayout)
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                flex: 7,
+                                child: ScreenIntroPanel(
+                                  compact: true,
+                                  eyebrow: 'Library',
+                                  title:
+                                      'Keep saved music, downloads, history, and playlists in one place.',
+                                  description:
+                                      'Move between saved songs, offline playback, listening history, and your own playlists without losing view space.',
+                                  trailing: IconButton.filledTonal(
+                                    onPressed: () =>
+                                        _createPlaylist(context, ref),
+                                    icon: const Icon(
+                                      Icons.playlist_add_rounded,
                                     ),
                                   ),
-                                  SizedBox(
-                                    width: itemWidth,
-                                    child: _MetricChip(
-                                      label: 'Downloads',
-                                      value:
-                                          '${downloadedTracks.asData?.value.length ?? 0}',
-                                      icon: Icons.download_done_rounded,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    width: itemWidth,
-                                    child: _MetricChip(
-                                      label: 'History',
-                                      value:
-                                          '${historyTracks.asData?.value.length ?? 0}',
-                                      icon: Icons.history_rounded,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    width: itemWidth,
-                                    child: _MetricChip(
-                                      label: 'Playlists',
-                                      value:
-                                          '${playlists.asData?.value.length ?? 0}',
-                                      icon: Icons.queue_music_rounded,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
-                          if (controlsLocked) ...[
-                            const SizedBox(height: 14),
-                            Container(
-                              padding: const EdgeInsets.all(14),
-                              decoration: BoxDecoration(
-                                color: palette.surfaceInset,
-                                borderRadius: BorderRadius.circular(18),
-                                border: Border.all(color: palette.border),
+                                ),
                               ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.lock_outline_rounded,
-                                    color: palette.textSecondary,
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      'Playback is currently controlled by your active room host.',
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodyMedium,
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(width: 16),
+                              Expanded(
+                                flex: 6,
+                                child: _LibraryOverviewPanel(
+                                  likedCount:
+                                      likedTracks.asData?.value.length ?? 0,
+                                  downloadCount:
+                                      downloadedTracks.asData?.value.length ??
+                                      0,
+                                  historyCount:
+                                      historyTracks.asData?.value.length ?? 0,
+                                  playlistCount:
+                                      playlists.asData?.value.length ?? 0,
+                                  controlsLocked: controlsLocked,
+                                ),
                               ),
+                            ],
+                          )
+                        else ...[
+                          ScreenIntroPanel(
+                            compact: introCompact,
+                            eyebrow: 'Library',
+                            title: 'Everything you want to keep close.',
+                            description:
+                                'Liked songs, offline tracks, history, and playlists stay easy to reach.',
+                            trailing: IconButton.filledTonal(
+                              onPressed: () => _createPlaylist(context, ref),
+                              icon: const Icon(Icons.playlist_add_rounded),
                             ),
-                          ],
+                          ),
+                          SizedBox(height: sectionGap),
+                          _LibraryOverviewPanel(
+                            likedCount: likedTracks.asData?.value.length ?? 0,
+                            downloadCount:
+                                downloadedTracks.asData?.value.length ?? 0,
+                            historyCount:
+                                historyTracks.asData?.value.length ?? 0,
+                            playlistCount: playlists.asData?.value.length ?? 0,
+                            controlsLocked: controlsLocked,
+                          ),
                         ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: palette.surfaceInset,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: palette.border),
-                      ),
-                      child: TabBar(
-                        isScrollable: true,
-                        tabAlignment: TabAlignment.start,
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                        dividerColor: Colors.transparent,
-                        indicator: BoxDecoration(
-                          color: palette.accentSoft,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: palette.border),
+                        SizedBox(height: sectionGap),
+                        _LibraryTabs(
+                          palette: palette,
+                          wideLayout: wideLayout,
+                          compact: introCompact,
                         ),
-                        indicatorSize: TabBarIndicatorSize.tab,
-                        tabs: const [
-                          Tab(
-                            height: 58,
-                            icon: Icon(Icons.favorite_rounded, size: 18),
-                            text: 'Liked',
-                          ),
-                          Tab(
-                            height: 58,
-                            icon: Icon(Icons.download_done_rounded, size: 18),
-                            text: 'Downloads',
-                          ),
-                          Tab(
-                            height: 58,
-                            icon: Icon(Icons.history_rounded, size: 18),
-                            text: 'History',
-                          ),
-                          Tab(
-                            height: 58,
-                            icon: Icon(Icons.queue_music_rounded, size: 18),
-                            text: 'Playlists',
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _TrackList(
-                      asyncTracks: likedTracks,
-                      controlsLocked: controlsLocked,
-                      showLikeButton: true,
-                      emptyTitle: 'No liked songs yet',
-                      emptyMessage:
-                          'Tap the heart on any track to keep it close.',
+                  ),
+                  SizedBox(height: shortLayout ? 10 : 14),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _TrackList(
+                          asyncTracks: likedTracks,
+                          controlsLocked: controlsLocked,
+                          showLikeButton: true,
+                          emptyTitle: 'No liked songs yet',
+                          emptyMessage:
+                              'Tap the heart on any track to keep it close.',
+                        ),
+                        _DownloadList(
+                          asyncDownloads: downloadedTracks,
+                          controlsLocked: controlsLocked,
+                        ),
+                        _TrackList(
+                          asyncTracks: historyTracks,
+                          controlsLocked: controlsLocked,
+                          emptyTitle: 'No listening history yet',
+                          emptyMessage:
+                              'Start playing songs and your recent listens will land here.',
+                        ),
+                        _PlaylistList(asyncPlaylists: playlists),
+                      ],
                     ),
-                    _DownloadList(
-                      asyncDownloads: downloadedTracks,
-                      controlsLocked: controlsLocked,
-                    ),
-                    _TrackList(
-                      asyncTracks: historyTracks,
-                      controlsLocked: controlsLocked,
-                      emptyTitle: 'No listening history yet',
-                      emptyMessage:
-                          'Start playing songs and your recent listens will land here.',
-                    ),
-                    _PlaylistList(asyncPlaylists: playlists),
-                  ],
-                ),
-              ),
-            ],
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -257,6 +199,163 @@ class LibraryScreen extends ConsumerWidget {
     if (result != null && result.isNotEmpty) {
       await ref.read(libraryRepositoryProvider).createPlaylist(result);
     }
+  }
+}
+
+class _LibraryOverviewPanel extends StatelessWidget {
+  const _LibraryOverviewPanel({
+    required this.likedCount,
+    required this.downloadCount,
+    required this.historyCount,
+    required this.playlistCount,
+    required this.controlsLocked,
+  });
+
+  final int likedCount;
+  final int downloadCount;
+  final int historyCount;
+  final int playlistCount;
+  final bool controlsLocked;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppColors.of(context);
+
+    return GlassPanel(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final itemWidth = (constraints.maxWidth - 10) / 2;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  SizedBox(
+                    width: itemWidth,
+                    child: _MetricChip(
+                      label: 'Liked',
+                      value: '$likedCount',
+                      icon: Icons.favorite_rounded,
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _MetricChip(
+                      label: 'Downloads',
+                      value: '$downloadCount',
+                      icon: Icons.download_done_rounded,
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _MetricChip(
+                      label: 'History',
+                      value: '$historyCount',
+                      icon: Icons.history_rounded,
+                    ),
+                  ),
+                  SizedBox(
+                    width: itemWidth,
+                    child: _MetricChip(
+                      label: 'Playlists',
+                      value: '$playlistCount',
+                      icon: Icons.queue_music_rounded,
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+          if (controlsLocked) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: palette.surfaceInset,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: palette.border),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    color: palette.textSecondary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Playback is currently controlled by your active room host.',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LibraryTabs extends StatelessWidget {
+  const _LibraryTabs({
+    required this.palette,
+    required this.wideLayout,
+    required this.compact,
+  });
+
+  final AurexPalette palette;
+  final bool wideLayout;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: palette.surfaceInset,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: palette.border),
+      ),
+      child: TabBar(
+        isScrollable: !wideLayout,
+        tabAlignment: wideLayout ? null : TabAlignment.start,
+        labelPadding: EdgeInsets.symmetric(horizontal: wideLayout ? 4 : 6),
+        dividerColor: Colors.transparent,
+        indicator: BoxDecoration(
+          color: palette.accentSoft,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: palette.border),
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        tabs: [
+          Tab(
+            height: compact ? 54 : 58,
+            icon: const Icon(Icons.favorite_rounded, size: 18),
+            text: 'Liked',
+          ),
+          Tab(
+            height: compact ? 54 : 58,
+            icon: const Icon(Icons.download_done_rounded, size: 18),
+            text: 'Downloads',
+          ),
+          Tab(
+            height: compact ? 54 : 58,
+            icon: const Icon(Icons.history_rounded, size: 18),
+            text: 'History',
+          ),
+          Tab(
+            height: compact ? 54 : 58,
+            icon: const Icon(Icons.queue_music_rounded, size: 18),
+            text: 'Playlists',
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -520,47 +619,57 @@ class _LibraryEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = AppColors.of(context);
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-      children: [
-        GlassPanel(
-          padding: const EdgeInsets.all(22),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: palette.accentSoft,
-                  border: Border.all(color: palette.border),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: (constraints.maxHeight - 36).clamp(0, double.infinity),
+            ),
+            child: Center(
+              child: GlassPanel(
+                padding: const EdgeInsets.all(22),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: palette.accentSoft,
+                        border: Border.all(color: palette.border),
+                      ),
+                      child: Icon(icon, color: palette.accent, size: 30),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      message,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    if (actionLabel != null && onAction != null) ...[
+                      const SizedBox(height: 18),
+                      FilledButton.tonal(
+                        onPressed: onAction,
+                        child: Text(actionLabel!),
+                      ),
+                    ],
+                  ],
                 ),
-                child: Icon(icon, color: palette.accent, size: 30),
               ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              if (actionLabel != null && onAction != null) ...[
-                const SizedBox(height: 18),
-                FilledButton.tonal(
-                  onPressed: onAction,
-                  child: Text(actionLabel!),
-                ),
-              ],
-            ],
+            ),
           ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
