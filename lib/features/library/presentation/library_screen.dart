@@ -55,14 +55,14 @@ class LibraryScreen extends ConsumerWidget {
               final introCompact = narrowLayout || shortLayout;
               final sectionGap = wideLayout
                   ? (shortLayout ? 12.0 : 16.0)
-                  : (denseLayout ? 8.0 : 12.0);
+                  : (denseLayout ? 6.0 : 12.0);
 
               return Column(
                 children: [
                   Padding(
                     padding: EdgeInsets.fromLTRB(
                       narrowLayout ? 16 : 20,
-                      denseLayout ? 10 : (introCompact ? 16 : 18),
+                      denseLayout ? 8 : (introCompact ? 16 : 18),
                       narrowLayout ? 16 : 20,
                       0,
                     ),
@@ -259,13 +259,13 @@ class _LibraryOverviewPanel extends StatelessWidget {
       ];
 
       return GlassPanel(
-        padding: EdgeInsets.all(dense ? 10 : 14),
+        padding: EdgeInsets.all(dense ? 8 : 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             LayoutBuilder(
               builder: (context, constraints) {
-                final spacing = dense ? 8.0 : 10.0;
+                final spacing = dense ? 6.0 : 10.0;
                 final itemWidth = (constraints.maxWidth - spacing) / 2;
                 return Wrap(
                   spacing: spacing,
@@ -287,11 +287,11 @@ class _LibraryOverviewPanel extends StatelessWidget {
               },
             ),
             if (controlsLocked) ...[
-              SizedBox(height: dense ? 6 : 8),
+              SizedBox(height: dense ? 4 : 8),
               Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: dense ? 10 : 12,
-                  vertical: dense ? 8 : 10,
+                  horizontal: dense ? 8 : 12,
+                  vertical: dense ? 7 : 10,
                 ),
                 decoration: BoxDecoration(
                   color: palette.surfaceInset,
@@ -426,16 +426,18 @@ class _LibraryTabs extends StatelessWidget {
         border: Border.all(color: palette.border),
       ),
       child: TabBar(
-        isScrollable: !wideLayout,
-        tabAlignment: wideLayout ? null : TabAlignment.start,
-        labelPadding: EdgeInsets.symmetric(horizontal: wideLayout ? 4 : 6),
+        isScrollable: narrow ? false : !wideLayout,
+        tabAlignment: (wideLayout || narrow) ? null : TabAlignment.start,
+        labelPadding: EdgeInsets.symmetric(
+          horizontal: narrow ? 0 : (wideLayout ? 4 : 6),
+        ),
         labelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
           fontWeight: FontWeight.w700,
-          fontSize: narrow ? 13 : 14,
+          fontSize: narrow ? 12 : 14,
         ),
         unselectedLabelStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
           fontWeight: FontWeight.w600,
-          fontSize: narrow ? 13 : 14,
+          fontSize: narrow ? 12 : 14,
         ),
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
@@ -446,23 +448,23 @@ class _LibraryTabs extends StatelessWidget {
         indicatorSize: TabBarIndicatorSize.tab,
         tabs: [
           Tab(
-            height: narrow ? 46 : (compact ? 54 : 58),
-            icon: Icon(Icons.favorite_rounded, size: narrow ? 17 : 18),
+            height: narrow ? 42 : (compact ? 54 : 58),
+            icon: Icon(Icons.favorite_rounded, size: narrow ? 16 : 18),
             text: 'Liked',
           ),
           Tab(
-            height: narrow ? 46 : (compact ? 54 : 58),
-            icon: Icon(Icons.download_done_rounded, size: narrow ? 17 : 18),
+            height: narrow ? 42 : (compact ? 54 : 58),
+            icon: Icon(Icons.download_done_rounded, size: narrow ? 16 : 18),
             text: 'Downloads',
           ),
           Tab(
-            height: narrow ? 46 : (compact ? 54 : 58),
-            icon: Icon(Icons.history_rounded, size: narrow ? 17 : 18),
+            height: narrow ? 42 : (compact ? 54 : 58),
+            icon: Icon(Icons.history_rounded, size: narrow ? 16 : 18),
             text: 'History',
           ),
           Tab(
-            height: narrow ? 46 : (compact ? 54 : 58),
-            icon: Icon(Icons.queue_music_rounded, size: narrow ? 17 : 18),
+            height: narrow ? 42 : (compact ? 54 : 58),
+            icon: Icon(Icons.queue_music_rounded, size: narrow ? 16 : 18),
             text: 'Playlists',
           ),
         ],
@@ -492,8 +494,8 @@ class _MetricChip extends StatelessWidget {
     return Container(
       constraints: BoxConstraints(minHeight: compact ? (dense ? 62 : 72) : 84),
       padding: EdgeInsets.symmetric(
-        horizontal: compact ? (dense ? 10 : 12) : 14,
-        vertical: compact ? (dense ? 10 : 12) : 14,
+        horizontal: compact ? (dense ? 9 : 12) : 14,
+        vertical: compact ? (dense ? 8 : 12) : 14,
       ),
       decoration: BoxDecoration(
         color: palette.surfaceInset,
@@ -504,7 +506,7 @@ class _MetricChip extends StatelessWidget {
           ? Row(
               children: [
                 Icon(icon, size: dense ? 16 : 18, color: palette.accent),
-                SizedBox(width: dense ? 8 : 10),
+                SizedBox(width: dense ? 7 : 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,15 +515,15 @@ class _MetricChip extends StatelessWidget {
                       Text(
                         value,
                         style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(fontSize: dense ? 20 : 24, height: 1),
+                            ?.copyWith(fontSize: dense ? 18 : 24, height: 1),
                       ),
-                      SizedBox(height: dense ? 1 : 2),
+                      SizedBox(height: dense ? 0 : 2),
                       Text(
                         label,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          fontSize: dense ? 11.5 : null,
+                          fontSize: dense ? 11 : null,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -853,7 +855,7 @@ class _LibraryCompactHeader extends StatelessWidget {
     final theme = Theme.of(context);
 
     return GlassPanel(
-      padding: EdgeInsets.all(dense ? 10 : 14),
+      padding: EdgeInsets.all(dense ? 8 : 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -861,8 +863,8 @@ class _LibraryCompactHeader extends StatelessWidget {
             children: [
               Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: dense ? 9 : 10,
-                  vertical: dense ? 5 : 6,
+                  horizontal: dense ? 8 : 10,
+                  vertical: dense ? 4 : 6,
                 ),
                 decoration: BoxDecoration(
                   color: AppColors.of(context).accentSoft,
@@ -871,40 +873,40 @@ class _LibraryCompactHeader extends StatelessWidget {
                 child: Text(
                   'Library',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    fontSize: dense ? 13 : null,
+                    fontSize: dense ? 12 : null,
                     fontWeight: FontWeight.w700,
                     color: AppColors.of(context).accent,
                   ),
                 ),
               ),
               const Spacer(),
-              SizedBox(width: dense ? 8 : 10),
+              SizedBox(width: dense ? 6 : 10),
               IconButton.filledTonal(
                 onPressed: onCreatePlaylist,
                 icon: const Icon(Icons.playlist_add_rounded),
-                iconSize: dense ? 20 : 22,
+                iconSize: dense ? 18 : 22,
                 visualDensity: VisualDensity.compact,
                 constraints: BoxConstraints.tightFor(
-                  width: dense ? 38 : 42,
-                  height: dense ? 38 : 42,
+                  width: dense ? 34 : 42,
+                  height: dense ? 34 : 42,
                 ),
               ),
             ],
           ),
-          SizedBox(height: dense ? 8 : 12),
+          SizedBox(height: dense ? 6 : 12),
           Text(
             'Everything you want to keep close.',
             style: theme.textTheme.headlineMedium?.copyWith(
-              fontSize: dense ? 20 : 26,
+              fontSize: dense ? 18 : 26,
               height: dense ? 1.0 : 1.04,
             ),
           ),
-          SizedBox(height: dense ? 4 : 6),
+          SizedBox(height: dense ? 2 : 6),
           Text(
             'Liked songs, offline tracks, history, and playlists stay easy to reach.',
             style:
                 (dense ? theme.textTheme.bodySmall : theme.textTheme.bodyMedium)
-                    ?.copyWith(height: 1.28),
+                    ?.copyWith(fontSize: dense ? 12 : null, height: 1.2),
           ),
         ],
       ),
