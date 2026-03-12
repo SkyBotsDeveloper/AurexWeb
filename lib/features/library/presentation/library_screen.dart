@@ -35,7 +35,6 @@ class LibraryScreen extends ConsumerWidget {
     final controlsLocked = ref
         .watch(roomSessionControllerProvider)
         .controlsLocked;
-    final isCompact = MediaQuery.sizeOf(context).width < 600;
     final likedTracks = ref.watch(likedTracksProvider);
     final downloadedTracks = ref.watch(downloadedTracksProvider);
     final historyTracks = ref.watch(historyTracksProvider);
@@ -49,17 +48,22 @@ class LibraryScreen extends ConsumerWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final wideLayout = constraints.maxWidth >= 980;
+              final narrowLayout = constraints.maxWidth < 720;
               final shortLayout = constraints.maxHeight < 860;
-              final introCompact = isCompact || shortLayout;
-              final sectionGap = shortLayout ? 12.0 : 16.0;
+              final denseLayout =
+                  constraints.maxWidth < 430 || constraints.maxHeight < 760;
+              final introCompact = narrowLayout || shortLayout;
+              final sectionGap = wideLayout
+                  ? (shortLayout ? 12.0 : 16.0)
+                  : (denseLayout ? 10.0 : 12.0);
 
               return Column(
                 children: [
                   Padding(
                     padding: EdgeInsets.fromLTRB(
-                      20,
-                      introCompact ? 16 : 18,
-                      20,
+                      narrowLayout ? 16 : 20,
+                      denseLayout ? 12 : (introCompact ? 16 : 18),
+                      narrowLayout ? 16 : 20,
                       0,
                     ),
                     child: Column(
@@ -104,7 +108,25 @@ class LibraryScreen extends ConsumerWidget {
                               ),
                             ],
                           )
-                        else ...[
+                        else if (narrowLayout) ...[
+                          _LibraryCompactHeader(
+                            dense: denseLayout,
+                            onCreatePlaylist: () =>
+                                _createPlaylist(context, ref),
+                          ),
+                          SizedBox(height: sectionGap),
+                          _LibraryOverviewPanel(
+                            likedCount: likedTracks.asData?.value.length ?? 0,
+                            downloadCount:
+                                downloadedTracks.asData?.value.length ?? 0,
+                            historyCount:
+                                historyTracks.asData?.value.length ?? 0,
+                            playlistCount: playlists.asData?.value.length ?? 0,
+                            controlsLocked: controlsLocked,
+                            compact: true,
+                            dense: denseLayout,
+                          ),
+                        ] else ...[
                           ScreenIntroPanel(
                             compact: introCompact,
                             eyebrow: 'Library',
@@ -125,6 +147,8 @@ class LibraryScreen extends ConsumerWidget {
                                 historyTracks.asData?.value.length ?? 0,
                             playlistCount: playlists.asData?.value.length ?? 0,
                             controlsLocked: controlsLocked,
+                            compact: false,
+                            dense: false,
                           ),
                         ],
                         SizedBox(height: sectionGap),
@@ -132,6 +156,7 @@ class LibraryScreen extends ConsumerWidget {
                           palette: palette,
                           wideLayout: wideLayout,
                           compact: introCompact,
+                          narrow: narrowLayout,
                         ),
                       ],
                     ),
@@ -209,6 +234,8 @@ class _LibraryOverviewPanel extends StatelessWidget {
     required this.historyCount,
     required this.playlistCount,
     required this.controlsLocked,
+    this.compact = false,
+    this.dense = false,
   });
 
   final int likedCount;
@@ -216,10 +243,87 @@ class _LibraryOverviewPanel extends StatelessWidget {
   final int historyCount;
   final int playlistCount;
   final bool controlsLocked;
+  final bool compact;
+  final bool dense;
 
   @override
   Widget build(BuildContext context) {
     final palette = AppColors.of(context);
+
+    if (compact) {
+      final metricEntries = [
+        ('Liked', '$likedCount', Icons.favorite_rounded),
+        ('Downloads', '$downloadCount', Icons.download_done_rounded),
+        ('History', '$historyCount', Icons.history_rounded),
+        ('Playlists', '$playlistCount', Icons.queue_music_rounded),
+      ];
+
+      return GlassPanel(
+        padding: EdgeInsets.all(dense ? 12 : 14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: dense ? 102 : 112,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final chipWidth = constraints.maxWidth < 360 ? 134.0 : 146.0;
+                  return ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    itemBuilder: (context, index) {
+                      final entry = metricEntries[index];
+                      return SizedBox(
+                        width: chipWidth,
+                        child: _MetricChip(
+                          label: entry.$1,
+                          value: entry.$2,
+                          icon: entry.$3,
+                          compact: true,
+                        ),
+                      );
+                    },
+                    separatorBuilder: (context, index) =>
+                        const SizedBox(width: 10),
+                    itemCount: metricEntries.length,
+                  );
+                },
+              ),
+            ),
+            if (controlsLocked) ...[
+              const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: palette.surfaceInset,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: palette.border),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.lock_outline_rounded,
+                      size: 18,
+                      color: palette.textSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Room host is controlling playback right now.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+    }
 
     return GlassPanel(
       padding: const EdgeInsets.all(16),
@@ -306,19 +410,21 @@ class _LibraryTabs extends StatelessWidget {
     required this.palette,
     required this.wideLayout,
     required this.compact,
+    required this.narrow,
   });
 
   final AurexPalette palette;
   final bool wideLayout;
   final bool compact;
+  final bool narrow;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(8),
+      padding: EdgeInsets.all(narrow ? 6 : 8),
       decoration: BoxDecoration(
         color: palette.surfaceInset,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(narrow ? 20 : 22),
         border: Border.all(color: palette.border),
       ),
       child: TabBar(
@@ -328,29 +434,29 @@ class _LibraryTabs extends StatelessWidget {
         dividerColor: Colors.transparent,
         indicator: BoxDecoration(
           color: palette.accentSoft,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(narrow ? 14 : 16),
           border: Border.all(color: palette.border),
         ),
         indicatorSize: TabBarIndicatorSize.tab,
         tabs: [
           Tab(
-            height: compact ? 54 : 58,
-            icon: const Icon(Icons.favorite_rounded, size: 18),
+            height: narrow ? 50 : (compact ? 54 : 58),
+            icon: Icon(Icons.favorite_rounded, size: narrow ? 17 : 18),
             text: 'Liked',
           ),
           Tab(
-            height: compact ? 54 : 58,
-            icon: const Icon(Icons.download_done_rounded, size: 18),
+            height: narrow ? 50 : (compact ? 54 : 58),
+            icon: Icon(Icons.download_done_rounded, size: narrow ? 17 : 18),
             text: 'Downloads',
           ),
           Tab(
-            height: compact ? 54 : 58,
-            icon: const Icon(Icons.history_rounded, size: 18),
+            height: narrow ? 50 : (compact ? 54 : 58),
+            icon: Icon(Icons.history_rounded, size: narrow ? 17 : 18),
             text: 'History',
           ),
           Tab(
-            height: compact ? 54 : 58,
-            icon: const Icon(Icons.queue_music_rounded, size: 18),
+            height: narrow ? 50 : (compact ? 54 : 58),
+            icon: Icon(Icons.queue_music_rounded, size: narrow ? 17 : 18),
             text: 'Playlists',
           ),
         ],
@@ -364,18 +470,23 @@ class _MetricChip extends StatelessWidget {
     required this.label,
     required this.value,
     required this.icon,
+    this.compact = false,
   });
 
   final String label;
   final String value;
   final IconData icon;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     final palette = AppColors.of(context);
     return Container(
-      constraints: const BoxConstraints(minHeight: 84),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      constraints: BoxConstraints(minHeight: compact ? 72 : 84),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 12 : 14,
+        vertical: compact ? 12 : 14,
+      ),
       decoration: BoxDecoration(
         color: palette.surfaceInset,
         borderRadius: BorderRadius.circular(18),
@@ -387,7 +498,7 @@ class _MetricChip extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 18, color: palette.accent),
-              const Spacer(),
+              const SizedBox(width: 8),
               Text(
                 label,
                 style: Theme.of(
@@ -396,12 +507,12 @@ class _MetricChip extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: compact ? 10 : 14),
           Text(
             value,
             style: Theme.of(
               context,
-            ).textTheme.headlineMedium?.copyWith(fontSize: 28),
+            ).textTheme.headlineMedium?.copyWith(fontSize: compact ? 24 : 28),
           ),
         ],
       ),
@@ -438,7 +549,7 @@ class _TrackList extends ConsumerWidget {
           );
         }
         return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          padding: _libraryContentPadding(context),
           itemCount: tracks.length,
           separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
@@ -493,7 +604,7 @@ class _DownloadList extends ConsumerWidget {
           );
         }
         return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          padding: _libraryContentPadding(context),
           itemCount: downloads.length,
           separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
@@ -546,7 +657,7 @@ class _PlaylistList extends StatelessWidget {
           );
         }
         return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+          padding: _libraryContentPadding(context),
           itemCount: playlists.length,
           separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
@@ -621,30 +732,46 @@ class _LibraryEmptyState extends StatelessWidget {
     final palette = AppColors.of(context);
     return LayoutBuilder(
       builder: (context, constraints) {
+        final compact =
+            MediaQuery.sizeOf(context).width < 430 ||
+            constraints.maxHeight < 360;
+
         return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          padding: EdgeInsets.fromLTRB(
+            compact ? 16 : 20,
+            compact ? 8 : 12,
+            compact ? 16 : 20,
+            24,
+          ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minHeight: (constraints.maxHeight - 36).clamp(0, double.infinity),
+              minHeight: compact
+                  ? 0
+                  : (constraints.maxHeight - 36).clamp(0, double.infinity),
             ),
-            child: Center(
+            child: Align(
+              alignment: compact ? Alignment.topCenter : Alignment.center,
               child: GlassPanel(
-                padding: const EdgeInsets.all(22),
+                padding: EdgeInsets.all(compact ? 18 : 22),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Container(
-                      width: 72,
-                      height: 72,
+                      width: compact ? 60 : 72,
+                      height: compact ? 60 : 72,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: palette.accentSoft,
                         border: Border.all(color: palette.border),
                       ),
-                      child: Icon(icon, color: palette.accent, size: 30),
+                      child: Icon(
+                        icon,
+                        color: palette.accent,
+                        size: compact ? 26 : 30,
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: compact ? 14 : 16),
                     Text(
                       title,
                       textAlign: TextAlign.center,
@@ -672,6 +799,80 @@ class _LibraryEmptyState extends StatelessWidget {
       },
     );
   }
+}
+
+class _LibraryCompactHeader extends StatelessWidget {
+  const _LibraryCompactHeader({
+    required this.dense,
+    required this.onCreatePlaylist,
+  });
+
+  final bool dense;
+  final VoidCallback onCreatePlaylist;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return GlassPanel(
+      padding: EdgeInsets.all(dense ? 14 : 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.of(context).accentSoft,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'Library',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.of(context).accent,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton.filledTonal(
+                onPressed: onCreatePlaylist,
+                icon: const Icon(Icons.playlist_add_rounded),
+              ),
+            ],
+          ),
+          SizedBox(height: dense ? 12 : 14),
+          Text(
+            'Everything you want to keep close.',
+            style: theme.textTheme.headlineMedium?.copyWith(
+              fontSize: dense ? 28 : 32,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Liked songs, offline tracks, history, and playlists stay easy to reach.',
+            style: theme.textTheme.bodyLarge,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+EdgeInsets _libraryContentPadding(BuildContext context) {
+  final compact = MediaQuery.sizeOf(context).width < 600;
+  return EdgeInsets.fromLTRB(
+    compact ? 16 : 20,
+    compact ? 8 : 0,
+    compact ? 16 : 20,
+    24,
+  );
 }
 
 class _TrackTileCard extends StatelessWidget {
