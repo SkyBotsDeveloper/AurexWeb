@@ -24,12 +24,14 @@ class _RoomSyncService {
   final Ref _ref;
   StreamSubscription<RoomPlaybackState?>? _playbackSubscription;
   PlaybackController? _hostPlaybackController;
-  Timer? _hostSyncDebounce;
 
   String? _activeRoomId;
   bool _isHost = false;
   int _lastAppliedSequence = -1;
-  String? _lastHostSyncSignature;
+  String? _lastHostStructuralSignature;
+  int? _lastHostPositionBucket;
+  bool _hostSyncRunning = false;
+  bool _hostSyncPending = false;
   bool _listenerSyncRunning = false;
   RoomPlaybackState? _pendingPlaybackState;
 
@@ -50,7 +52,10 @@ class _RoomSyncService {
     }
 
     _lastAppliedSequence = -1;
-    _lastHostSyncSignature = null;
+    _lastHostStructuralSignature = null;
+    _lastHostPositionBucket = null;
+    _hostSyncRunning = false;
+    _hostSyncPending = false;
     _pendingPlaybackState = null;
     _listenerSyncRunning = false;
     _detachHostSync();
@@ -74,14 +79,16 @@ class _RoomSyncService {
   }
 
   Future<void> dispose() async {
-    _hostSyncDebounce?.cancel();
     _detachHostSync();
     await _playbackSubscription?.cancel();
   }
 
   void _resetBindings() {
     _lastAppliedSequence = -1;
-    _lastHostSyncSignature = null;
+    _lastHostStructuralSignature = null;
+    _lastHostPositionBucket = null;
+    _hostSyncRunning = false;
+    _hostSyncPending = false;
     _pendingPlaybackState = null;
     _listenerSyncRunning = false;
     _detachHostSync();
@@ -92,22 +99,36 @@ class _RoomSyncService {
   void _attachHostSync() {
     final controller = _ref.read(playbackControllerProvider);
     _hostPlaybackController = controller;
-    controller.notifier.addListener(_scheduleHostSync);
-    _scheduleHostSync();
+    controller.notifier.addListener(_requestHostSync);
+    _requestHostSync();
   }
 
   void _detachHostSync() {
-    _hostPlaybackController?.notifier.removeListener(_scheduleHostSync);
+    _hostPlaybackController?.notifier.removeListener(_requestHostSync);
     _hostPlaybackController = null;
-    _hostSyncDebounce?.cancel();
   }
 
-  void _scheduleHostSync() {
-    _hostSyncDebounce?.cancel();
-    _hostSyncDebounce = Timer(
-      const Duration(milliseconds: 450),
-      _syncHostPlayback,
-    );
+  void _requestHostSync() {
+    _hostSyncPending = true;
+    if (_hostSyncRunning) {
+      return;
+    }
+    _hostSyncRunning = true;
+    unawaited(_drainHostSyncQueue());
+  }
+
+  Future<void> _drainHostSyncQueue() async {
+    try {
+      while (_hostSyncPending) {
+        _hostSyncPending = false;
+        await _syncHostPlayback();
+      }
+    } finally {
+      _hostSyncRunning = false;
+      if (_hostSyncPending) {
+        _requestHostSync();
+      }
+    }
   }
 
   Future<void> _syncHostPlayback() async {
@@ -121,21 +142,27 @@ class _RoomSyncService {
       return;
     }
 
-    final signature = [
+    final structuralSignature = [
       snapshot.currentTrack?.id ?? '',
       snapshot.currentIndex ?? -1,
-      snapshot.position.inMilliseconds ~/ 1000,
       snapshot.isPlaying ? 1 : 0,
       snapshot.queue.length,
     ].join(':');
+    final positionBucket =
+        snapshot.position.inMilliseconds ~/ (snapshot.isPlaying ? 1500 : 750);
 
-    if (signature == _lastHostSyncSignature) {
+    final structuralChanged =
+        structuralSignature != _lastHostStructuralSignature;
+    final positionChanged = positionBucket != _lastHostPositionBucket;
+
+    if (!structuralChanged && !positionChanged) {
       return;
     }
-    _lastHostSyncSignature = signature;
 
     try {
       await _ref.read(roomRepositoryProvider).syncPlayback(roomId, snapshot);
+      _lastHostStructuralSignature = structuralSignature;
+      _lastHostPositionBucket = positionBucket;
     } catch (_) {
       // Room sync failures should not interrupt local playback.
     }
