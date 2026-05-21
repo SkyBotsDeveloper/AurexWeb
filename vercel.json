@@ -9,7 +9,7 @@
     },
     {
       "source": "/aurex-api/:path*",
-      "destination": "/api/aurex/:path*"
+      "destination": "/api/aurex?path=:path*"
     },
     {
       "source": "/artwork-api/:path*",

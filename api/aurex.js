@@ -63,7 +63,10 @@ module.exports = async function aurexProxy(req, res) {
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), isResolve ? 25000 : 12000);
+    const timeout = setTimeout(
+      () => controller.abort(),
+      isResolve ? 25000 : 12000,
+    );
 
     try {
       const response = await fetch(upstreamUrl, {
@@ -108,6 +111,7 @@ module.exports = async function aurexProxy(req, res) {
   res.status(502).json({
     success: false,
     error: 'Aurex API is temporarily unavailable.',
-    detail: lastError?.name === 'AbortError' ? 'Upstream timeout' : 'Upstream failure',
+    detail:
+      lastError?.name === 'AbortError' ? 'Upstream timeout' : 'Upstream failure',
   });
 };
