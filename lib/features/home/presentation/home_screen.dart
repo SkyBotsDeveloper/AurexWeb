@@ -3,12 +3,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/artwork_card.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/screen_intro_panel.dart';
 import '../../../core/widgets/section_header.dart';
+import '../../../core/widgets/skeleton_loader.dart';
+import '../../../core/widgets/state_scaffold.dart';
 import '../../library/data/library_repository.dart';
 import '../../music/data/music_repository.dart';
 import '../../music/domain/music_models.dart';
@@ -42,6 +45,12 @@ class HomeScreen extends ConsumerWidget {
         onRefresh: () => ref.refresh(homeSectionsProvider.future),
         child: AsyncValueView(
           value: sections,
+          loading: _HomeSkeleton(isCompact: isCompact),
+          error: (error, _) => StateScaffold(
+            icon: Icons.cloud_off_rounded,
+            title: 'Unable to load home',
+            message: friendlyErrorMessage(error),
+          ),
           data: (items) {
             final featuredItem = items.isEmpty || items.first.items.isEmpty
                 ? null
@@ -237,6 +246,75 @@ class HomeScreen extends ConsumerWidget {
           },
         ),
       ),
+    );
+  }
+}
+
+class _HomeSkeleton extends StatelessWidget {
+  const _HomeSkeleton({required this.isCompact});
+
+  final bool isCompact;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(20, isCompact ? 18 : 24, 20, 32),
+      children: [
+        GlassPanel(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SkeletonBlock(width: 168, height: 34),
+              const SizedBox(height: 26),
+              SkeletonBlock(
+                width: isCompact ? 270 : 560,
+                height: isCompact ? 64 : 38,
+              ),
+              const SizedBox(height: 14),
+              SkeletonBlock(width: isCompact ? 290 : 520, height: 18),
+              const SizedBox(height: 22),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: const [
+                  SkeletonBlock(width: 106, height: 50),
+                  SkeletonBlock(width: 106, height: 50),
+                  SkeletonBlock(width: 106, height: 50),
+                ],
+              ),
+              const SizedBox(height: 18),
+              const SkeletonBlock(width: double.infinity, height: 88),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        _SkeletonSectionHeader(isCompact: isCompact),
+        const SizedBox(height: 14),
+        const MediaRailSkeleton(),
+        const SizedBox(height: 28),
+        _SkeletonSectionHeader(isCompact: isCompact),
+        const SizedBox(height: 14),
+        const MediaRailSkeleton(itemCount: 4),
+      ],
+    );
+  }
+}
+
+class _SkeletonSectionHeader extends StatelessWidget {
+  const _SkeletonSectionHeader({required this.isCompact});
+
+  final bool isCompact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SkeletonBlock(width: isCompact ? 150 : 210, height: 24),
+        const Spacer(),
+        const SkeletonBlock(width: 62, height: 18),
+      ],
     );
   }
 }

@@ -14,6 +14,11 @@ import '../../rooms/data/room_session_controller.dart';
 import '../data/music_repository.dart';
 import '../domain/music_models.dart';
 
+final podcastDetailProvider = FutureProvider.autoDispose
+    .family<PodcastDetail, String>(
+      (ref, id) => ref.read(musicRepositoryProvider).fetchPodcast(id),
+    );
+
 class PodcastDetailScreen extends ConsumerWidget {
   const PodcastDetailScreen({super.key, required this.id, this.initial});
 
@@ -22,28 +27,22 @@ class PodcastDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final future = ref.read(musicRepositoryProvider).fetchPodcast(id);
     final bottomPadding = MediaQuery.sizeOf(context).width >= 1120
         ? 32.0
         : 140.0;
+    final podcastState = ref.watch(podcastDetailProvider(id));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Show')),
-      body: FutureBuilder<PodcastDetail>(
-        future: future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const MediaDetailSkeleton(rowCount: 6);
-          }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return StateScaffold(
-              icon: Icons.error_outline_rounded,
-              title: 'Unable to open this show',
-              message: friendlyErrorMessage(snapshot.error),
-            );
-          }
-
-          final detail = _mergeInitial(snapshot.data!);
+      body: podcastState.when(
+        loading: () => const MediaDetailSkeleton(rowCount: 6),
+        error: (error, _) => StateScaffold(
+          icon: Icons.error_outline_rounded,
+          title: 'Unable to open this show',
+          message: friendlyErrorMessage(error),
+        ),
+        data: (podcast) {
+          final detail = _mergeInitial(podcast);
           return ListView(
             padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding),
             children: [

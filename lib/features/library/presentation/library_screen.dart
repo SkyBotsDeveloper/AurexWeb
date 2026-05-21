@@ -7,6 +7,7 @@ import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/screen_intro_panel.dart';
+import '../../../core/widgets/skeleton_loader.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../../music/domain/music_models.dart';
 import '../../player/data/download_manager.dart';
@@ -613,7 +614,10 @@ class _TrackList extends ConsumerWidget {
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => ListView(
+        padding: _libraryContentPadding(context),
+        children: const [ResultsListSkeleton(groupCount: 1, rowCount: 5)],
+      ),
       error: (error, _) => StateScaffold(
         icon: Icons.error_outline_rounded,
         title: 'Library error',
@@ -670,7 +674,10 @@ class _DownloadList extends ConsumerWidget {
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => ListView(
+        padding: _libraryContentPadding(context),
+        children: const [ResultsListSkeleton(groupCount: 1, rowCount: 5)],
+      ),
       error: (error, _) => StateScaffold(
         icon: Icons.error_outline_rounded,
         title: 'Downloads error',
@@ -750,7 +757,10 @@ class _PlaylistList extends StatelessWidget {
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => ListView(
+        padding: _libraryContentPadding(context),
+        children: const [ResultsListSkeleton(groupCount: 1, rowCount: 5)],
+      ),
       error: (error, _) => StateScaffold(
         icon: Icons.error_outline_rounded,
         title: 'Playlists error',

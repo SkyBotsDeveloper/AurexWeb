@@ -16,6 +16,16 @@ import '../domain/music_models.dart';
 
 enum CollectionKind { album, playlist }
 
+typedef CollectionDetailRequest = ({String id, CollectionKind kind});
+
+final collectionDetailProvider = FutureProvider.autoDispose
+    .family<CollectionDetail, CollectionDetailRequest>((ref, request) {
+      final repository = ref.read(musicRepositoryProvider);
+      return request.kind == CollectionKind.album
+          ? repository.fetchAlbum(request.id)
+          : repository.fetchPlaylist(request.id);
+    });
+
 class CollectionDetailScreen extends ConsumerWidget {
   const CollectionDetailScreen({
     super.key,
@@ -33,32 +43,25 @@ class CollectionDetailScreen extends ConsumerWidget {
     final bottomPadding = MediaQuery.sizeOf(context).width >= 1120
         ? 32.0
         : 140.0;
-    final future = kind == CollectionKind.album
-        ? ref.read(musicRepositoryProvider).fetchAlbum(id)
-        : ref.read(musicRepositoryProvider).fetchPlaylist(id);
+    final detailState = ref.watch(
+      collectionDetailProvider((id: id, kind: kind)),
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: Text(kind == CollectionKind.album ? 'Album' : 'Playlist'),
       ),
-      body: FutureBuilder<CollectionDetail>(
-        future: future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return MediaDetailSkeleton(
-              showDescription: kind == CollectionKind.playlist,
-              rowCount: 7,
-            );
-          }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return StateScaffold(
-              icon: Icons.error_outline_rounded,
-              title: 'Unable to load details',
-              message: friendlyErrorMessage(snapshot.error),
-            );
-          }
-
-          final detail = snapshot.data!;
+      body: detailState.when(
+        loading: () => MediaDetailSkeleton(
+          showDescription: kind == CollectionKind.playlist,
+          rowCount: 7,
+        ),
+        error: (error, _) => StateScaffold(
+          icon: Icons.error_outline_rounded,
+          title: 'Unable to load details',
+          message: friendlyErrorMessage(error),
+        ),
+        data: (detail) {
           final metadata = [
             if (detail.artists.isNotEmpty)
               detail.artists.map((artist) => artist.name).join(', '),

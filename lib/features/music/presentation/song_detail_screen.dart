@@ -12,7 +12,12 @@ import '../../../core/widgets/state_scaffold.dart';
 import '../../player/data/playback_controller.dart';
 import '../../rooms/data/room_session_controller.dart';
 import '../data/music_repository.dart';
+import '../domain/music_models.dart';
 import 'track_support_actions.dart';
+
+final songDetailProvider = FutureProvider.autoDispose.family<Track, String>(
+  (ref, id) => ref.read(musicRepositoryProvider).fetchSong(id),
+);
 
 class SongDetailScreen extends ConsumerWidget {
   const SongDetailScreen({super.key, required this.id});
@@ -26,23 +31,18 @@ class SongDetailScreen extends ConsumerWidget {
     final bottomPadding = MediaQuery.sizeOf(context).width >= 1120
         ? 32.0
         : 140.0;
+    final trackState = ref.watch(songDetailProvider(id));
+
     return Scaffold(
       appBar: AppBar(title: const Text('Song')),
-      body: FutureBuilder(
-        future: ref.read(musicRepositoryProvider).fetchSong(id),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const MediaDetailSkeleton(rowCount: 3);
-          }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return StateScaffold(
-              icon: Icons.error_outline_rounded,
-              title: 'Unable to load song',
-              message: friendlyErrorMessage(snapshot.error),
-            );
-          }
-
-          final track = snapshot.data!;
+      body: trackState.when(
+        loading: () => const MediaDetailSkeleton(rowCount: 3),
+        error: (error, _) => StateScaffold(
+          icon: Icons.error_outline_rounded,
+          title: 'Unable to load song',
+          message: friendlyErrorMessage(error),
+        ),
+        data: (track) {
           final metadata = [
             if (track.albumName != null && track.albumName!.isNotEmpty)
               track.albumName!,

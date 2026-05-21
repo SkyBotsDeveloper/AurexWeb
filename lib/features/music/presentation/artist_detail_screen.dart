@@ -11,7 +11,13 @@ import '../../../core/widgets/state_scaffold.dart';
 import '../../player/data/playback_controller.dart';
 import '../../rooms/data/room_session_controller.dart';
 import '../data/music_repository.dart';
+import '../domain/music_models.dart';
 import 'open_media_summary.dart';
+
+final artistDetailProvider = FutureProvider.autoDispose
+    .family<ArtistDetail, String>(
+      (ref, id) => ref.read(musicRepositoryProvider).fetchArtist(id),
+    );
 
 class ArtistDetailScreen extends ConsumerWidget {
   const ArtistDetailScreen({super.key, required this.id});
@@ -21,22 +27,18 @@ class ArtistDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final roomSession = ref.watch(roomSessionControllerProvider);
+    final artistState = ref.watch(artistDetailProvider(id));
+
     return Scaffold(
       appBar: AppBar(title: const Text('Artist')),
-      body: FutureBuilder(
-        future: ref.read(musicRepositoryProvider).fetchArtist(id),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const MediaDetailSkeleton(rowCount: 5);
-          }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return StateScaffold(
-              icon: Icons.error_outline_rounded,
-              title: 'Unable to load artist',
-              message: friendlyErrorMessage(snapshot.error),
-            );
-          }
-          final artist = snapshot.data!;
+      body: artistState.when(
+        loading: () => const MediaDetailSkeleton(rowCount: 5),
+        error: (error, _) => StateScaffold(
+          icon: Icons.error_outline_rounded,
+          title: 'Unable to load artist',
+          message: friendlyErrorMessage(error),
+        ),
+        data: (artist) {
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
             children: [

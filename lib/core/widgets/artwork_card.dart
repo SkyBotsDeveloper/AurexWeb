@@ -27,6 +27,7 @@ class ArtworkCard extends StatefulWidget {
 
 class _ArtworkCardState extends State<ArtworkCard> {
   bool _busy = false;
+  bool _hovered = false;
 
   Future<void> _handleTap() async {
     if (_busy) {
@@ -52,159 +53,180 @@ class _ArtworkCardState extends State<ArtworkCard> {
   Widget build(BuildContext context) {
     final palette = AppColors.of(context);
 
-    return SizedBox(
-      width: widget.width,
-      height: widget.height,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: _busy ? null : _handleTap,
-          child: Ink(
-            decoration: BoxDecoration(
+    return MouseRegion(
+      onEnter: (_) {
+        if (!_hovered) {
+          setState(() => _hovered = true);
+        }
+      },
+      onExit: (_) {
+        if (_hovered) {
+          setState(() => _hovered = false);
+        }
+      },
+      child: AnimatedScale(
+        scale: _hovered && !_busy ? 1.025 : 1,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutCubic,
+        child: SizedBox(
+          width: widget.width,
+          height: widget.height,
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
               borderRadius: BorderRadius.circular(24),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [palette.tileTop, palette.tileBottom],
-              ),
-              border: Border.all(color: palette.border),
-              boxShadow: [
-                BoxShadow(
-                  color: palette.shadow.withAlpha(60),
-                  blurRadius: 24,
-                  offset: const Offset(0, 14),
+              onTap: _busy ? null : _handleTap,
+              child: Ink(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(24),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [palette.tileTop, palette.tileBottom],
+                  ),
+                  border: Border.all(
+                    color: _hovered ? palette.accentSoft : palette.border,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: palette.shadow.withAlpha(_hovered ? 95 : 60),
+                      blurRadius: _hovered ? 30 : 24,
+                      offset: Offset(0, _hovered ? 18 : 14),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Stack(
                   children: [
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(24),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              Positioned.fill(
+                                child: ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(24),
+                                  ),
+                                  child: NetworkArtwork(
+                                    imageUrl: widget.item.artworkUrl,
+                                    fallbackIcon: Icons.music_note_rounded,
+                                    iconSize: 38,
+                                  ),
+                                ),
                               ),
-                              child: NetworkArtwork(
-                                imageUrl: widget.item.artworkUrl,
-                                fallbackIcon: Icons.music_note_rounded,
-                                iconSize: 38,
+                              Positioned.fill(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        Colors.transparent,
+                                        palette.background.withAlpha(136),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ),
-                            ),
+                              Positioned(
+                                left: 12,
+                                top: 12,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: palette.background.withAlpha(180),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(color: palette.border),
+                                  ),
+                                  child: Text(
+                                    _typeLabel(widget.item.type),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: palette.textPrimary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                ),
+                              ),
+                              Positioned(
+                                right: 12,
+                                bottom: 12,
+                                child: Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: palette.accent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    _actionIcon(widget.item.type),
+                                    color: palette.background,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          Positioned.fill(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    Colors.transparent,
-                                    palette.background.withAlpha(136),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                widget.item.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                widget.item.artistText ??
+                                    widget.item.subtitle ??
+                                    widget.item.description ??
+                                    _typeLabel(widget.item.type),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_busy)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: palette.background.withAlpha(170),
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 84,
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SkeletonBlock(width: 54, height: 54),
+                                    SizedBox(height: 12),
+                                    SkeletonBlock(width: 84, height: 12),
                                   ],
                                 ),
                               ),
                             ),
                           ),
-                          Positioned(
-                            left: 12,
-                            top: 12,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: palette.background.withAlpha(180),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(color: palette.border),
-                              ),
-                              child: Text(
-                                _typeLabel(widget.item.type),
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(
-                                      color: palette.textPrimary,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            right: 12,
-                            bottom: 12,
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                color: palette.accent,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                _actionIcon(widget.item.type),
-                                color: palette.background,
-                              ),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.item.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.item.artistText ??
-                                widget.item.subtitle ??
-                                widget.item.description ??
-                                _typeLabel(widget.item.type),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
-                if (_busy)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: palette.background.withAlpha(170),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: const Center(
-                          child: SizedBox(
-                            width: 84,
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SkeletonBlock(width: 54, height: 54),
-                                SizedBox(height: 12),
-                                SkeletonBlock(width: 84, height: 12),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+              ),
             ),
           ),
         ),

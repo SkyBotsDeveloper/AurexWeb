@@ -18,6 +18,28 @@ import 'open_media_summary.dart';
 
 enum DiscoveryKind { radio, channel }
 
+typedef DiscoveryDetailRequest = ({String id, DiscoveryKind kind});
+
+final discoveryDetailProvider = FutureProvider.autoDispose
+    .family<_DiscoveryPageData, DiscoveryDetailRequest>((ref, request) async {
+      final repository = ref.read(musicRepositoryProvider);
+      final detail = request.kind == DiscoveryKind.radio
+          ? await repository.fetchRadioStation(request.id)
+          : await repository.fetchChannel(request.id);
+      final search = await repository.searchDiscovery(
+        _discoverySearchQuery(
+          source: detail.source,
+          id: request.id,
+          kind: request.kind,
+        ),
+      );
+      return _DiscoveryPageData(
+        detail: detail,
+        search: search,
+        kind: request.kind,
+      );
+    });
+
 class DiscoveryDetailScreen extends ConsumerWidget {
   const DiscoveryDetailScreen({
     super.key,
@@ -32,7 +54,9 @@ class DiscoveryDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final future = _load(ref);
+    final discoveryState = ref.watch(
+      discoveryDetailProvider((id: id, kind: kind)),
+    );
     final bottomPadding = MediaQuery.sizeOf(context).width >= 1120
         ? 32.0
         : 140.0;
@@ -41,21 +65,15 @@ class DiscoveryDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(kind == DiscoveryKind.radio ? 'Radio' : 'Category'),
       ),
-      body: FutureBuilder<_DiscoveryPageData>(
-        future: future,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const MediaDetailSkeleton(rowCount: 6);
-          }
-          if (snapshot.hasError || !snapshot.hasData) {
-            return StateScaffold(
-              icon: Icons.error_outline_rounded,
-              title: 'Unable to open this section',
-              message: friendlyErrorMessage(snapshot.error),
-            );
-          }
-
-          final data = snapshot.data!;
+      body: discoveryState.when(
+        loading: () => const MediaDetailSkeleton(rowCount: 6),
+        error: (error, _) => StateScaffold(
+          icon: Icons.error_outline_rounded,
+          title: 'Unable to open this section',
+          message: friendlyErrorMessage(error),
+        ),
+        data: (rawData) {
+          final data = _mergeInitialPageData(rawData);
           return ListView(
             padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding),
             children: [
@@ -112,23 +130,17 @@ class DiscoveryDetailScreen extends ConsumerWidget {
     );
   }
 
-  Future<_DiscoveryPageData> _load(WidgetRef ref) async {
-    final repository = ref.read(musicRepositoryProvider);
-    final detail = kind == DiscoveryKind.radio
-        ? await repository.fetchRadioStation(id)
-        : await repository.fetchChannel(id);
-    final source = _mergeInitial(detail.source);
-    final query = _searchQuery(source);
-    final search = await repository.searchDiscovery(query);
+  _DiscoveryPageData _mergeInitialPageData(_DiscoveryPageData data) {
+    final source = _mergeInitial(data.detail.source);
     return _DiscoveryPageData(
       detail: DiscoveryDetail(
         source: source,
-        related: detail.related,
-        nowPlaying: detail.nowPlaying,
-        message: detail.message,
+        related: data.detail.related,
+        nowPlaying: data.detail.nowPlaying,
+        message: data.detail.message,
       ),
-      search: search,
-      kind: kind,
+      search: data.search,
+      kind: data.kind,
     );
   }
 
@@ -154,18 +166,22 @@ class DiscoveryDetailScreen extends ConsumerWidget {
       artistText: fetched.artistText ?? fallback.artistText,
     );
   }
+}
 
-  String _searchQuery(MediaSummary source) {
-    final base = source.title.trim();
-    if (base.isEmpty) {
-      return id;
-    }
-    if (kind == DiscoveryKind.radio &&
-        (source.subtitle ?? '').toLowerCase().contains('hindi')) {
-      return '$base Hindi';
-    }
-    return base;
+String _discoverySearchQuery({
+  required MediaSummary source,
+  required String id,
+  required DiscoveryKind kind,
+}) {
+  final base = source.title.trim();
+  if (base.isEmpty) {
+    return id;
   }
+  if (kind == DiscoveryKind.radio &&
+      (source.subtitle ?? '').toLowerCase().contains('hindi')) {
+    return '$base Hindi';
+  }
+  return base;
 }
 
 class _DiscoveryPageData {
