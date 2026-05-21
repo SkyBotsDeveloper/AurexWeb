@@ -42,7 +42,6 @@ dependencies:
   audio_service: ^0.18.18
   just_audio_background: ^0.0.1-beta.17
   cached_network_image: ^3.4.1
-  flutter_dotenv: ^6.0.0
   sembast: ^3.8.6
   sembast_web: ^2.4.4+1
   path_provider: ^2.1.5
@@ -84,9 +83,7 @@ flutter:
   # the material Icons class.
   uses-material-design: true
   assets:
-    - .env
     - assets/branding/
-    - assets/images/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

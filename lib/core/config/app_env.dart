@@ -1,5 +1,3 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-
 class AppEnv {
   AppEnv({
     required this.musicApiBaseUrl,
@@ -19,34 +17,37 @@ class AppEnv {
       (supabaseUrl?.isNotEmpty ?? false) &&
       (supabaseAnonKey?.isNotEmpty ?? false);
 
-  String get mobileAuthRedirectUrl =>
-      '$authRedirectScheme://$authRedirectHost';
+  String get mobileAuthRedirectUrl => '$authRedirectScheme://$authRedirectHost';
 
   static Future<AppEnv> load() async {
-    await dotenv.load(
-      fileName: '.env',
-      isOptional: true,
-      mergeWith: const {
-        'JIOSAAVN_BASE_URL': 'https://elitejiosaavn-api.vercel.app',
-        'AUTH_REDIRECT_SCHEME': 'aurex',
-        'AUTH_REDIRECT_HOST': 'auth-callback',
-      },
-    );
-
     return AppEnv(
-      musicApiBaseUrl:
-          dotenv.env['JIOSAAVN_BASE_URL'] ??
-          'https://elitejiosaavn-api.vercel.app',
-      supabaseUrl: _clean(dotenv.env['SUPABASE_URL']),
+      musicApiBaseUrl: _clean(_musicApiBaseUrl) ?? _defaultMusicApiBaseUrl,
+      supabaseUrl: _clean(_supabaseUrl),
       supabaseAnonKey:
-          _clean(dotenv.env['SUPABASE_PUBLISHABLE_KEY']) ??
-          _clean(dotenv.env['SUPABASE_ANON_KEY']),
-      authRedirectScheme:
-          dotenv.env['AUTH_REDIRECT_SCHEME'] ?? 'aurex',
-      authRedirectHost:
-          dotenv.env['AUTH_REDIRECT_HOST'] ?? 'auth-callback',
+          _clean(_supabasePublishableKey) ?? _clean(_supabaseAnonKey),
+      authRedirectScheme: _clean(_authRedirectScheme) ?? 'aurex',
+      authRedirectHost: _clean(_authRedirectHost) ?? 'auth-callback',
     );
   }
+
+  static const _defaultMusicApiBaseUrl = 'https://elitejiosaavn-api.vercel.app';
+  static const _musicApiBaseUrl = String.fromEnvironment(
+    'JIOSAAVN_BASE_URL',
+    defaultValue: _defaultMusicApiBaseUrl,
+  );
+  static const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
+  static const _supabasePublishableKey = String.fromEnvironment(
+    'SUPABASE_PUBLISHABLE_KEY',
+  );
+  static const _supabaseAnonKey = String.fromEnvironment('SUPABASE_ANON_KEY');
+  static const _authRedirectScheme = String.fromEnvironment(
+    'AUTH_REDIRECT_SCHEME',
+    defaultValue: 'aurex',
+  );
+  static const _authRedirectHost = String.fromEnvironment(
+    'AUTH_REDIRECT_HOST',
+    defaultValue: 'auth-callback',
+  );
 
   static String? _clean(String? value) {
     if (value == null) {

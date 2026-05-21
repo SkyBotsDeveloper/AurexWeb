@@ -20,15 +20,22 @@ Aurex is a premium cross-platform Flutter music app with:
 
 ## Setup
 
-1. Copy `.env.example` to `.env`.
-2. Fill in your Supabase URL and anon key.
+1. Copy `.env.example` to `.env` for local values.
+2. Fill in your Supabase URL and publishable key.
 3. Add your custom redirect URL to Supabase Auth settings.
-4. Run:
+4. Pass local values at build/run time with `--dart-define-from-file=.env`.
+5. Run:
 
 ```powershell
 C:\Users\strad\develop\flutter\bin\flutter.bat pub get
+C:\Users\strad\develop\flutter\bin\flutter.bat run --dart-define-from-file=.env
+C:\Users\strad\develop\flutter\bin\flutter.bat build apk --release --dart-define-from-file=.env
 C:\Users\strad\develop\flutter\bin\flutter.bat analyze
 ```
+
+For Vercel, set these as project environment variables instead of committing or
+shipping `.env`: `JIOSAAVN_BASE_URL`, `SUPABASE_URL`,
+`SUPABASE_PUBLISHABLE_KEY`, `AUTH_REDIRECT_SCHEME`, and `AUTH_REDIRECT_HOST`.
 
 ## Supabase
 
@@ -38,7 +45,7 @@ SQL migrations for the realtime room system live in [supabase/migrations](/c:/Us
 
 Local verification depends on:
 
-- valid Supabase credentials in `.env`
+- valid Supabase credentials passed with `--dart-define-from-file=.env`
 - Google auth provider configuration in Supabase
 - platform-specific OAuth redirect setup
 - available Android/web/windows toolchains

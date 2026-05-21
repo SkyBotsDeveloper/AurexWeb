@@ -54,10 +54,7 @@ class AboutScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          Text(
-            'Connect',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
+          Text('Connect', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 10),
           _ContactTile(
             title: 'Telegram',
@@ -96,6 +93,25 @@ class _ContactTile extends StatelessWidget {
   final String value;
   final Uri uri;
 
+  Future<void> _open(BuildContext context) async {
+    try {
+      final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (opened || !context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not open $value.')));
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not open $value.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListTile(
@@ -103,7 +119,7 @@ class _ContactTile extends StatelessWidget {
       title: Text(title),
       subtitle: Text(value),
       trailing: const Icon(Icons.open_in_new_rounded),
-      onTap: () => launchUrl(uri, mode: LaunchMode.externalApplication),
+      onTap: () => _open(context),
     );
   }
 }

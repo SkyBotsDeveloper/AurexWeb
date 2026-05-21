@@ -40,6 +40,9 @@ class MiniPlayer extends ConsumerWidget {
             final ultraCompact =
                 embedded &&
                 (constraints.maxWidth < 420 || viewport.height < 740);
+            final sideControlSize = ultraCompact
+                ? 36.0
+                : (compact ? 40.0 : 48.0);
 
             return Container(
               margin: embedded
@@ -127,13 +130,19 @@ class MiniPlayer extends ConsumerWidget {
                               ],
                             ),
                           ),
-                          if (!compact)
-                            IconButton(
-                              onPressed: controlsLocked
-                                  ? null
-                                  : controller.skipPrevious,
-                              icon: const Icon(Icons.skip_previous_rounded),
+                          IconButton(
+                            onPressed: controlsLocked
+                                ? null
+                                : controller.skipPrevious,
+                            icon: const Icon(Icons.skip_previous_rounded),
+                            iconSize: ultraCompact ? 22 : 24,
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints.tightFor(
+                              width: sideControlSize,
+                              height: sideControlSize,
                             ),
+                          ),
                           FilledButton.tonal(
                             onPressed: controlsLocked
                                 ? null
@@ -158,13 +167,19 @@ class MiniPlayer extends ConsumerWidget {
                                   : Icons.play_arrow_rounded,
                             ),
                           ),
-                          if (!compact)
-                            IconButton(
-                              onPressed: controlsLocked
-                                  ? null
-                                  : controller.skipNext,
-                              icon: const Icon(Icons.skip_next_rounded),
+                          IconButton(
+                            onPressed: controlsLocked
+                                ? null
+                                : controller.skipNext,
+                            icon: const Icon(Icons.skip_next_rounded),
+                            iconSize: ultraCompact ? 22 : 24,
+                            visualDensity: VisualDensity.compact,
+                            padding: EdgeInsets.zero,
+                            constraints: BoxConstraints.tightFor(
+                              width: sideControlSize,
+                              height: sideControlSize,
                             ),
+                          ),
                         ],
                       ),
                     ),

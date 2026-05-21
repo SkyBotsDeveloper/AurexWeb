@@ -9,15 +9,15 @@ fi
 
 export PATH="$FLUTTER_ROOT/bin:$PATH"
 
-cat > .env <<EOF
-JIOSAAVN_BASE_URL=${JIOSAAVN_BASE_URL:-https://elitejiosaavn-api.vercel.app}
-SUPABASE_URL=${SUPABASE_URL:-}
-SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:-${SUPABASE_ANON_KEY:-}}
-AUTH_REDIRECT_SCHEME=${AUTH_REDIRECT_SCHEME:-aurex}
-AUTH_REDIRECT_HOST=${AUTH_REDIRECT_HOST:-auth-callback}
-EOF
+dart_defines=(
+  "--dart-define=JIOSAAVN_BASE_URL=${JIOSAAVN_BASE_URL:-https://elitejiosaavn-api.vercel.app}"
+  "--dart-define=SUPABASE_URL=${SUPABASE_URL:-}"
+  "--dart-define=SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:-${SUPABASE_ANON_KEY:-}}"
+  "--dart-define=AUTH_REDIRECT_SCHEME=${AUTH_REDIRECT_SCHEME:-aurex}"
+  "--dart-define=AUTH_REDIRECT_HOST=${AUTH_REDIRECT_HOST:-auth-callback}"
+)
 
 flutter --disable-analytics
 flutter config --enable-web
 flutter pub get
-flutter build web --release
+flutter build web --release "${dart_defines[@]}"
