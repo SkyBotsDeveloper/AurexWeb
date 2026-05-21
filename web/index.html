@@ -133,14 +133,6 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
-  <script>
-    window.addEventListener('flutter-first-frame', function () {
-      var boot = document.getElementById('boot');
-      if (boot) {
-        boot.remove();
-      }
-      document.body.style.overflow = 'auto';
-    });
-  </script>
+  <script src="boot.js" async></script>
 </body>
 </html>
