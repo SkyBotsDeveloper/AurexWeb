@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../features/music/domain/music_models.dart';
 import '../theme/app_colors.dart';
+import 'network_artwork.dart';
 
 class ArtworkCard extends StatelessWidget {
   const ArtworkCard({
@@ -58,18 +58,10 @@ class ArtworkCard extends StatelessWidget {
                           borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(24),
                           ),
-                          child: ColoredBox(
-                            color: palette.surfaceBright,
-                            child: item.artworkUrl == null
-                                ? Icon(
-                                    Icons.music_note,
-                                    color: palette.accent,
-                                    size: 38,
-                                  )
-                                : CachedNetworkImage(
-                                    imageUrl: item.artworkUrl!,
-                                    fit: BoxFit.cover,
-                                  ),
+                          child: NetworkArtwork(
+                            imageUrl: item.artworkUrl,
+                            fallbackIcon: Icons.music_note_rounded,
+                            iconSize: 38,
                           ),
                         ),
                       ),

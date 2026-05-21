@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/artwork_card.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/glass_panel.dart';
+import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/screen_intro_panel.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../library/data/library_repository.dart';
@@ -279,6 +280,7 @@ class _HomeHero extends StatelessWidget {
                 : 'Browse the app freely while the host controls playback for everyone in the room.'
           : 'Search fast, jump back in, or open a room without digging through the app first.',
       trailing: IconButton.filledTonal(
+        tooltip: 'Settings',
         onPressed: onSettings,
         icon: const Icon(Icons.tune_rounded),
       ),
@@ -333,16 +335,11 @@ class _FeaturedStrip extends StatelessWidget {
             child: SizedBox(
               width: 52,
               height: 52,
-              child: item.artworkUrl == null
-                  ? Container(
-                      color: palette.accentSoft,
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.auto_awesome_rounded,
-                        color: palette.accent,
-                      ),
-                    )
-                  : Image.network(item.artworkUrl!, fit: BoxFit.cover),
+              child: NetworkArtwork(
+                imageUrl: item.artworkUrl,
+                fallbackIcon: Icons.auto_awesome_rounded,
+                iconSize: 28,
+              ),
             ),
           ),
           const SizedBox(width: 12),
@@ -418,9 +415,11 @@ class _RecentTrackTile extends StatelessWidget {
                   color: palette.surfaceBright,
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: track.artworkUrl == null
-                    ? Icon(Icons.music_note_rounded, color: palette.accent)
-                    : Image.network(track.artworkUrl!, fit: BoxFit.cover),
+                child: NetworkArtwork(
+                  imageUrl: track.artworkUrl,
+                  fallbackIcon: Icons.music_note_rounded,
+                  iconSize: 28,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(

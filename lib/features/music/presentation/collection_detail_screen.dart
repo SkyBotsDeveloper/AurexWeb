@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass_panel.dart';
+import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../../player/data/playback_controller.dart';
 import '../../rooms/data/room_session_controller.dart';
@@ -261,18 +261,16 @@ class _DetailArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final palette = AppColors.of(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
       child: SizedBox(
         width: 144,
         height: 144,
-        child: artworkUrl == null
-            ? DecoratedBox(
-                decoration: BoxDecoration(color: palette.surfaceBright),
-                child: Icon(fallbackIcon, color: palette.accent, size: 40),
-              )
-            : CachedNetworkImage(imageUrl: artworkUrl!, fit: BoxFit.cover),
+        child: NetworkArtwork(
+          imageUrl: artworkUrl,
+          fallbackIcon: fallbackIcon,
+          iconSize: 40,
+        ),
       ),
     );
   }

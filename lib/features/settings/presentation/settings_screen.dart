@@ -99,52 +99,77 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              SwitchListTile(
-                value: current.autoQuality,
-                onChanged: settings.setAutoQuality,
-                title: const Text('Auto quality'),
-                subtitle: const Text(
-                  'Prefer balanced quality when bandwidth is uncertain.',
+              GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Playback',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: current.autoQuality,
+                      onChanged: settings.setAutoQuality,
+                      title: const Text('Auto quality'),
+                      subtitle: const Text(
+                        'Prefer balanced quality when bandwidth is uncertain.',
+                      ),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: current.rememberQueue,
+                      onChanged: settings.setRememberQueue,
+                      title: const Text('Resume playback state'),
+                      subtitle: const Text(
+                        'Restore queue, track index, and position on relaunch.',
+                      ),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: current.autoResyncRooms,
+                      onChanged: settings.setAutoResyncRooms,
+                      title: const Text('Auto-resync rooms'),
+                      subtitle: const Text(
+                        'Prefer timestamp correction when room drift crosses threshold.',
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              SwitchListTile(
-                value: current.rememberQueue,
-                onChanged: settings.setRememberQueue,
-                title: const Text('Resume playback state'),
-                subtitle: const Text(
-                  'Restore queue, track index, and position on relaunch.',
+              const SizedBox(height: 16),
+              GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('App', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 8),
+                    FutureBuilder<int>(
+                      future: library.totalDownloadBytes(),
+                      builder: (context, snapshot) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Storage usage'),
+                        subtitle: Text(
+                          '${formatBytes(snapshot.data ?? 0)} in downloads',
+                        ),
+                      ),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Clear downloads'),
+                      trailing: const Icon(Icons.delete_sweep_rounded),
+                      onTap: () =>
+                          ref.read(downloadManagerProvider).clearDownloads(),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('About Us'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => context.push('/about'),
+                    ),
+                  ],
                 ),
-              ),
-              SwitchListTile(
-                value: current.autoResyncRooms,
-                onChanged: settings.setAutoResyncRooms,
-                title: const Text('Auto-resync rooms'),
-                subtitle: const Text(
-                  'Prefer timestamp correction when room drift crosses threshold.',
-                ),
-              ),
-              const SizedBox(height: 8),
-              FutureBuilder<int>(
-                future: library.totalDownloadBytes(),
-                builder: (context, snapshot) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Storage usage'),
-                  subtitle: Text(
-                    '${formatBytes(snapshot.data ?? 0)} in downloads',
-                  ),
-                ),
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Clear downloads'),
-                trailing: const Icon(Icons.delete_sweep_rounded),
-                onTap: () => ref.read(downloadManagerProvider).clearDownloads(),
-              ),
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('About Us'),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: () => context.push('/about'),
               ),
             ],
           );

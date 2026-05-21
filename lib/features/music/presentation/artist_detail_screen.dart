@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/widgets/artwork_card.dart';
+import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../data/music_repository.dart';
@@ -34,19 +34,22 @@ class ArtistDetailScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
             children: [
-              if (artist.artworkUrl != null)
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(28),
-                  child: AspectRatio(
-                    aspectRatio: 1,
-                    child: CachedNetworkImage(
-                      imageUrl: artist.artworkUrl!,
-                      fit: BoxFit.cover,
-                    ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(28),
+                child: AspectRatio(
+                  aspectRatio: 1,
+                  child: NetworkArtwork(
+                    imageUrl: artist.artworkUrl,
+                    fallbackIcon: Icons.person_rounded,
+                    iconSize: 64,
                   ),
                 ),
+              ),
               const SizedBox(height: 20),
-              Text(artist.name, style: Theme.of(context).textTheme.headlineMedium),
+              Text(
+                artist.name,
+                style: Theme.of(context).textTheme.headlineMedium,
+              ),
               const SizedBox(height: 8),
               Text(artist.bio ?? 'No biography available.'),
               const SizedBox(height: 20),
@@ -61,7 +64,8 @@ class ArtistDetailScreen extends ConsumerWidget {
                       const SizedBox(width: 14),
                   itemBuilder: (context, index) => ArtworkCard(
                     item: artist.topAlbums[index],
-                    onTap: () => openMediaSummary(context, ref, artist.topAlbums[index]),
+                    onTap: () =>
+                        openMediaSummary(context, ref, artist.topAlbums[index]),
                   ),
                 ),
               ),

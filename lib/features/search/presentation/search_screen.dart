@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/artwork_card.dart';
 import '../../../core/widgets/glass_panel.dart';
+import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/screen_intro_panel.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/state_scaffold.dart';
@@ -270,15 +270,11 @@ class _TopResultCard extends ConsumerWidget {
               child: SizedBox(
                 width: 76,
                 height: 76,
-                child: item.artworkUrl == null
-                    ? ColoredBox(
-                        color: palette.surfaceBright,
-                        child: Icon(Icons.music_note_rounded),
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: item.artworkUrl!,
-                        fit: BoxFit.cover,
-                      ),
+                child: NetworkArtwork(
+                  imageUrl: item.artworkUrl,
+                  fallbackIcon: Icons.music_note_rounded,
+                  iconSize: 34,
+                ),
               ),
             ),
             const SizedBox(width: 16),
@@ -391,18 +387,11 @@ class _BrowseTile extends ConsumerWidget {
               child: SizedBox(
                 width: 56,
                 height: 56,
-                child: item.artworkUrl == null
-                    ? ColoredBox(
-                        color: palette.surfaceBright,
-                        child: Icon(
-                          Icons.music_note_rounded,
-                          color: palette.accent,
-                        ),
-                      )
-                    : CachedNetworkImage(
-                        imageUrl: item.artworkUrl!,
-                        fit: BoxFit.cover,
-                      ),
+                child: NetworkArtwork(
+                  imageUrl: item.artworkUrl,
+                  fallbackIcon: Icons.music_note_rounded,
+                  iconSize: 28,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -443,22 +432,17 @@ class _SearchResultTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final palette = AppColors.of(context);
     return ListTile(
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: SizedBox(
           width: 54,
           height: 54,
-          child: item.artworkUrl == null
-              ? ColoredBox(
-                  color: palette.surfaceBright,
-                  child: Icon(Icons.music_note_rounded, color: palette.accent),
-                )
-              : CachedNetworkImage(
-                  imageUrl: item.artworkUrl!,
-                  fit: BoxFit.cover,
-                ),
+          child: NetworkArtwork(
+            imageUrl: item.artworkUrl,
+            fallbackIcon: Icons.music_note_rounded,
+            iconSize: 28,
+          ),
         ),
       ),
       title: Text(item.title),

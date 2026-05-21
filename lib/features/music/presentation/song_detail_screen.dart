@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass_panel.dart';
+import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../../player/data/playback_controller.dart';
 import '../../rooms/data/room_session_controller.dart';
@@ -63,21 +63,11 @@ class SongDetailScreen extends ConsumerWidget {
                       child: SizedBox(
                         width: 144,
                         height: 144,
-                        child: track.artworkUrl == null
-                            ? DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: palette.surfaceBright,
-                                ),
-                                child: Icon(
-                                  Icons.music_note_rounded,
-                                  color: palette.accent,
-                                  size: 40,
-                                ),
-                              )
-                            : CachedNetworkImage(
-                                imageUrl: track.artworkUrl!,
-                                fit: BoxFit.cover,
-                              ),
+                        child: NetworkArtwork(
+                          imageUrl: track.artworkUrl,
+                          fallbackIcon: Icons.music_note_rounded,
+                          iconSize: 40,
+                        ),
                       ),
                     ),
                     ConstrainedBox(

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_panel.dart';
+import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/screen_intro_panel.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../../music/domain/music_models.dart';
@@ -964,9 +965,11 @@ class _TrackTileCard extends StatelessWidget {
                   color: palette.surfaceBright,
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: track.artworkUrl == null
-                    ? Icon(Icons.music_note_rounded, color: palette.accent)
-                    : Image.network(track.artworkUrl!, fit: BoxFit.cover),
+                child: NetworkArtwork(
+                  imageUrl: track.artworkUrl,
+                  fallbackIcon: Icons.music_note_rounded,
+                  iconSize: 30,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(

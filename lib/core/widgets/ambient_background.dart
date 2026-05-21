@@ -18,49 +18,37 @@ class AmbientBackground extends StatelessWidget {
             decoration: BoxDecoration(gradient: palette.backgroundGradient),
           ),
         ),
-        Positioned(
-          top: -120,
-          left: -80,
+        Positioned.fill(
           child: IgnorePointer(
-            child: Container(
-              width: 280,
-              height: 280,
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [palette.ambientTopGlow, Colors.transparent],
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    palette.ambientTopGlow,
+                    Colors.transparent,
+                    palette.ambientRightGlow,
+                  ],
+                  stops: const [0, 0.48, 1],
                 ),
               ),
             ),
           ),
         ),
-        Positioned(
-          top: 120,
-          right: -120,
+        Positioned.fill(
           child: IgnorePointer(
-            child: Container(
-              width: 320,
-              height: 320,
+            child: DecoratedBox(
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [palette.ambientRightGlow, Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -140,
-          left: 40,
-          child: IgnorePointer(
-            child: Container(
-              width: 280,
-              height: 280,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  colors: [palette.ambientBottomGlow, Colors.transparent],
+                gradient: LinearGradient(
+                  begin: Alignment.bottomLeft,
+                  end: Alignment.topRight,
+                  colors: [
+                    palette.ambientBottomGlow,
+                    Colors.transparent,
+                    palette.surface.withAlpha(22),
+                  ],
+                  stops: const [0, 0.58, 1],
                 ),
               ),
             ),

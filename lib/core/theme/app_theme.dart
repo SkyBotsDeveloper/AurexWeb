@@ -14,6 +14,7 @@ class AppTheme {
       seedColor: palette.accent,
       brightness: brightness,
       primary: palette.accent,
+      secondary: palette.accentStrong,
       surface: palette.surface,
     );
 
@@ -25,6 +26,7 @@ class AppTheme {
       colorScheme: scheme.copyWith(
         primary: palette.accent,
         secondary: palette.accentStrong,
+        tertiary: palette.warning,
         surface: palette.surface,
         onSurface: palette.textPrimary,
         onPrimary: brightness == Brightness.dark
@@ -55,19 +57,19 @@ class AppTheme {
         headlineLarge: TextStyle(
           fontSize: 32,
           fontWeight: FontWeight.w800,
-          letterSpacing: -0.8,
+          letterSpacing: 0,
           color: palette.textPrimary,
         ),
         headlineMedium: TextStyle(
           fontSize: 26,
           fontWeight: FontWeight.w800,
-          letterSpacing: -0.6,
+          letterSpacing: 0,
           color: palette.textPrimary,
         ),
         titleLarge: TextStyle(
           fontSize: 20,
           fontWeight: FontWeight.w700,
-          letterSpacing: -0.2,
+          letterSpacing: 0,
           color: palette.textPrimary,
         ),
         titleMedium: TextStyle(
@@ -103,6 +105,8 @@ class AppTheme {
             borderRadius: BorderRadius.circular(18),
           ),
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          disabledBackgroundColor: palette.surfaceMuted,
+          disabledForegroundColor: palette.textSecondary,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -122,6 +126,8 @@ class AppTheme {
           foregroundColor: palette.textPrimary,
           backgroundColor: Colors.transparent,
           minimumSize: const Size(44, 44),
+          hoverColor: palette.accentSoft,
+          focusColor: palette.accentSoft,
         ),
       ),
       chipTheme: ChipThemeData(
@@ -180,14 +186,42 @@ class AppTheme {
         trackColor: WidgetStatePropertyAll(palette.surfaceInset.withAlpha(120)),
         trackBorderColor: WidgetStatePropertyAll(Colors.transparent),
         radius: const Radius.circular(999),
-        thickness: const WidgetStatePropertyAll(10),
-        thumbVisibility: const WidgetStatePropertyAll(true),
+        thickness: const WidgetStatePropertyAll(8),
+        thumbVisibility: const WidgetStatePropertyAll(false),
+      ),
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? palette.accent
+              : palette.textSecondary,
+        ),
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? palette.accentSoft
+              : palette.surfaceInset,
+        ),
+        trackOutlineColor: WidgetStatePropertyAll(palette.border),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: palette.accentStrong,
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: palette.surfaceElevated,
         contentTextStyle: TextStyle(color: palette.textPrimary),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
         behavior: SnackBarBehavior.floating,
+      ),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: FadeUpwardsPageTransitionsBuilder(),
+          TargetPlatform.linux: FadeUpwardsPageTransitionsBuilder(),
+        },
       ),
     );
   }

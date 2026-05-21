@@ -107,18 +107,20 @@ class AppBottomNav extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        items[index].$2,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: compact ? 10 : 11,
-                          fontWeight: index == currentIndex
-                              ? FontWeight.w700
-                              : FontWeight.w600,
-                          color: index == currentIndex
-                              ? palette.textPrimary
-                              : palette.textSecondary,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          items[index].$2,
+                          maxLines: 1,
+                          style: TextStyle(
+                            fontSize: compact ? 10 : 11,
+                            fontWeight: index == currentIndex
+                                ? FontWeight.w700
+                                : FontWeight.w600,
+                            color: index == currentIndex
+                                ? palette.textPrimary
+                                : palette.textSecondary,
+                          ),
                         ),
                       ),
                     ],

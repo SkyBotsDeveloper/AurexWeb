@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
@@ -7,6 +6,7 @@ import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass_panel.dart';
+import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../../music/data/music_repository.dart';
 import '../../music/domain/music_models.dart';
@@ -65,19 +65,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                           child: SizedBox(
                             width: artworkSize,
                             height: artworkSize,
-                            child: track.artworkUrl == null
-                                ? ColoredBox(
-                                    color: palette.surfaceBright,
-                                    child: Icon(
-                                      Icons.music_note_rounded,
-                                      size: 56,
-                                      color: palette.accent,
-                                    ),
-                                  )
-                                : CachedNetworkImage(
-                                    imageUrl: track.artworkUrl!,
-                                    fit: BoxFit.cover,
-                                  ),
+                            child: NetworkArtwork(
+                              imageUrl: track.artworkUrl,
+                              fallbackIcon: Icons.music_note_rounded,
+                              iconSize: 56,
+                            ),
                           ),
                         ),
                         ConstrainedBox(

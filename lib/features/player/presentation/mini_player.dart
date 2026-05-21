@@ -1,9 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/network_artwork.dart';
 import '../../rooms/data/room_session_controller.dart';
 import '../data/playback_controller.dart';
 
@@ -86,18 +86,11 @@ class MiniPlayer extends ConsumerWidget {
                             child: SizedBox(
                               width: ultraCompact ? 42 : (compact ? 46 : 52),
                               height: ultraCompact ? 42 : (compact ? 46 : 52),
-                              child: track.artworkUrl == null
-                                  ? ColoredBox(
-                                      color: palette.surfaceMuted,
-                                      child: Icon(
-                                        Icons.music_note,
-                                        color: palette.accent,
-                                      ),
-                                    )
-                                  : CachedNetworkImage(
-                                      imageUrl: track.artworkUrl!,
-                                      fit: BoxFit.cover,
-                                    ),
+                              child: NetworkArtwork(
+                                imageUrl: track.artworkUrl,
+                                fallbackIcon: Icons.music_note_rounded,
+                                iconSize: 26,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
