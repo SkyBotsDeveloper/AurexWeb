@@ -52,8 +52,8 @@
       align-items: center;
       justify-content: center;
       background:
-        radial-gradient(circle at top left, rgba(61, 189, 248, 0.18), transparent 34%),
-        radial-gradient(circle at bottom right, rgba(125, 211, 252, 0.10), transparent 28%),
+        linear-gradient(135deg, rgba(61, 189, 248, 0.16) 0%, rgba(61, 189, 248, 0) 38%),
+        linear-gradient(315deg, rgba(168, 85, 247, 0.12) 0%, rgba(168, 85, 247, 0) 34%),
         linear-gradient(180deg, #05070A 0%, #081019 55%, #05070A 100%);
       z-index: 9999;
     }
@@ -61,7 +61,7 @@
     .boot-shell {
       width: min(420px, calc(100vw - 48px));
       padding: 28px;
-      border-radius: 28px;
+      border-radius: 8px;
       border: 1px solid rgba(125, 211, 252, 0.14);
       background: rgba(10, 18, 28, 0.92);
       box-shadow: 0 28px 80px rgba(0, 0, 0, 0.35);
@@ -80,7 +80,7 @@
       font-size: 36px;
       line-height: 1;
       font-weight: 800;
-      letter-spacing: -0.04em;
+      letter-spacing: 0;
     }
 
     .boot-copy {
