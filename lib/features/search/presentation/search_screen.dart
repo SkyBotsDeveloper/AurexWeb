@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,9 +13,11 @@ import '../../../core/widgets/screen_intro_panel.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/skeleton_loader.dart';
 import '../../../core/widgets/state_scaffold.dart';
+import '../../music/data/aurex_api_client.dart';
 import '../../music/data/music_repository.dart';
 import '../../music/domain/music_models.dart';
 import '../../music/presentation/open_media_summary.dart';
+import '../../player/data/playback_controller.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -28,6 +31,14 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Timer? _debounce;
   Future<SearchResults>? _searchFuture;
   late final Future<List<HomeSection>> _trendingFuture;
+  String _query = '';
+  CancelToken? _onlineSearchCancelToken;
+  int _onlineSearchVersion = 0;
+  bool _onlineSearchRequested = false;
+  bool _onlineSearchLoading = false;
+  String? _onlineSearchError;
+  List<AurexSong> _onlineResults = const [];
+  String? _loadingOnlineSongId;
 
   @override
   void initState() {
@@ -38,19 +49,30 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   @override
   void dispose() {
     _debounce?.cancel();
+    _onlineSearchCancelToken?.cancel('Search screen disposed');
     _controller.dispose();
     super.dispose();
   }
 
   void _onChanged(String value) {
     _debounce?.cancel();
+    setState(() {});
     _debounce = Timer(const Duration(milliseconds: 350), () {
       final query = value.trim();
       if (!mounted) {
         return;
       }
+      _onlineSearchCancelToken?.cancel('Query changed');
       setState(() {
-        _searchFuture = query.isEmpty
+        _query = query;
+        _onlineSearchCancelToken = null;
+        _onlineSearchVersion++;
+        _onlineSearchRequested = false;
+        _onlineSearchLoading = false;
+        _onlineSearchError = null;
+        _onlineResults = const [];
+        _loadingOnlineSongId = null;
+        _searchFuture = query.length < 2
             ? null
             : ref.read(musicRepositoryProvider).searchAll(query);
       });
@@ -62,6 +84,123 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     _controller.selection = TextSelection.collapsed(offset: value.length);
     _onChanged(value);
     setState(() {});
+  }
+
+  void _clearSearch() {
+    _controller.clear();
+    _debounce?.cancel();
+    _onlineSearchCancelToken?.cancel('Search cleared');
+    setState(() {
+      _query = '';
+      _searchFuture = null;
+      _onlineSearchCancelToken = null;
+      _onlineSearchVersion++;
+      _onlineSearchRequested = false;
+      _onlineSearchLoading = false;
+      _onlineSearchError = null;
+      _onlineResults = const [];
+      _loadingOnlineSongId = null;
+    });
+  }
+
+  void _startOnlineSearchAfterFrame() {
+    if (_query.length < 2 || _onlineSearchRequested || _onlineSearchLoading) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _onlineSearchRequested || _onlineSearchLoading) {
+        return;
+      }
+      unawaited(_startOnlineSearch());
+    });
+  }
+
+  Future<void> _startOnlineSearch() async {
+    final query = _query.trim();
+    if (query.length < 2) {
+      return;
+    }
+
+    _onlineSearchCancelToken?.cancel('Superseded online search');
+    final version = ++_onlineSearchVersion;
+    final cancelToken = CancelToken();
+
+    setState(() {
+      _onlineSearchCancelToken = cancelToken;
+      _onlineSearchRequested = true;
+      _onlineSearchLoading = true;
+      _onlineSearchError = null;
+    });
+
+    try {
+      final results = await ref
+          .read(aurexApiClientProvider)
+          .searchAurexSongs(query, cancelToken: cancelToken);
+      if (!mounted || version != _onlineSearchVersion) {
+        return;
+      }
+      setState(() {
+        _onlineSearchLoading = false;
+        _onlineResults = results;
+        _onlineSearchCancelToken = null;
+      });
+    } on DioException catch (error) {
+      if (CancelToken.isCancel(error)) {
+        return;
+      }
+      if (!mounted || version != _onlineSearchVersion) {
+        return;
+      }
+      setState(() {
+        _onlineSearchLoading = false;
+        _onlineSearchError = 'Online search is temporarily unavailable.';
+        _onlineSearchCancelToken = null;
+      });
+    } catch (error) {
+      if (!mounted || version != _onlineSearchVersion) {
+        return;
+      }
+      setState(() {
+        _onlineSearchLoading = false;
+        _onlineSearchError = friendlyErrorMessage(
+          error,
+          fallback: 'Online search is temporarily unavailable.',
+        );
+        _onlineSearchCancelToken = null;
+      });
+    }
+  }
+
+  Future<void> _playOnlineSong(AurexSong song) async {
+    if (_loadingOnlineSongId == song.id) {
+      return;
+    }
+    setState(() => _loadingOnlineSongId = song.id);
+
+    try {
+      final track = await ref
+          .read(aurexApiClientProvider)
+          .resolvePlayableTrack(song);
+      await ref.read(playbackControllerProvider).playTrack(track);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            friendlyErrorMessage(
+              error,
+              fallback: 'Could not load this song. Please try another result.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted && _loadingOnlineSongId == song.id) {
+        setState(() => _loadingOnlineSongId = null);
+      }
+    }
   }
 
   @override
@@ -91,9 +230,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     ? null
                     : IconButton(
                         onPressed: () {
-                          _controller.clear();
-                          _debounce?.cancel();
-                          setState(() => _searchFuture = null);
+                          _clearSearch();
                         },
                         icon: const Icon(Icons.close_rounded),
                       ),
@@ -218,11 +355,15 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 }
                 final result = snapshot.data;
                 if (result == null || result.isEmpty) {
-                  return const StateScaffold(
-                    icon: Icons.search_off_rounded,
-                    title: 'No results',
-                    message:
-                        'Try a different title, artist, album, or playlist name.',
+                  _startOnlineSearchAfterFrame();
+                  return _OnlineResultsSection(
+                    showEmptyLocalMessage: true,
+                    isLoading: _onlineSearchLoading || !_onlineSearchRequested,
+                    error: _onlineSearchError,
+                    results: _onlineResults,
+                    loadingSongId: _loadingOnlineSongId,
+                    onRetry: _startOnlineSearch,
+                    onSongSelected: _playOnlineSong,
                   );
                 }
                 return Column(
@@ -236,12 +377,226 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     _SearchGroup(title: 'Albums', items: result.albums),
                     _SearchGroup(title: 'Artists', items: result.artists),
                     _SearchGroup(title: 'Playlists', items: result.playlists),
+                    _SearchOnlineAction(
+                      isLoading: _onlineSearchLoading,
+                      isRequested: _onlineSearchRequested,
+                      onPressed: _startOnlineSearch,
+                    ),
+                    _OnlineResultsSection(
+                      isLoading: _onlineSearchLoading,
+                      error: _onlineSearchError,
+                      results: _onlineResults,
+                      loadingSongId: _loadingOnlineSongId,
+                      onRetry: _startOnlineSearch,
+                      onSongSelected: _playOnlineSong,
+                    ),
                   ],
                 );
               },
             ),
         ],
       ),
+    );
+  }
+}
+
+class _SearchOnlineAction extends StatelessWidget {
+  const _SearchOnlineAction({
+    required this.isLoading,
+    required this.isRequested,
+    required this.onPressed,
+  });
+
+  final bool isLoading;
+  final bool isRequested;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = isRequested ? 'Refresh online results' : 'Search online too';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 22),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: OutlinedButton.icon(
+          onPressed: isLoading ? null : onPressed,
+          icon: isLoading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.public_rounded),
+          label: Text(isLoading ? 'Searching online...' : label),
+        ),
+      ),
+    );
+  }
+}
+
+class _OnlineResultsSection extends StatelessWidget {
+  const _OnlineResultsSection({
+    required this.isLoading,
+    required this.error,
+    required this.results,
+    required this.loadingSongId,
+    required this.onRetry,
+    required this.onSongSelected,
+    this.showEmptyLocalMessage = false,
+  });
+
+  final bool isLoading;
+  final String? error;
+  final List<AurexSong> results;
+  final String? loadingSongId;
+  final VoidCallback onRetry;
+  final ValueChanged<AurexSong> onSongSelected;
+  final bool showEmptyLocalMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!showEmptyLocalMessage &&
+        !isLoading &&
+        error == null &&
+        results.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final palette = AppColors.of(context);
+    final subtitle = showEmptyLocalMessage
+        ? 'No local results. Searching online...'
+        : 'Aurex API fallback results';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: 'Online results',
+          subtitle: isLoading ? subtitle : 'Resolve only when you press play',
+          trailing: results.isEmpty
+              ? null
+              : Text(
+                  '${results.length}',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                ),
+        ),
+        const SizedBox(height: 12),
+        if (isLoading && results.isEmpty)
+          const ResultsListSkeleton(groupCount: 1, rowCount: 4)
+        else if (error != null)
+          GlassPanel(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                Icon(Icons.cloud_off_rounded, color: palette.textSecondary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    error!,
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                TextButton(onPressed: onRetry, child: const Text('Retry')),
+              ],
+            ),
+          )
+        else if (results.isEmpty)
+          const StateScaffold(
+            icon: Icons.search_off_rounded,
+            title: 'No online results',
+            message: 'Try a different song title or artist.',
+          )
+        else
+          GlassPanel(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              children: [
+                if (isLoading) ...[
+                  Row(
+                    children: [
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Searching online...',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                  Divider(color: palette.border.withAlpha(120), height: 22),
+                ],
+                for (var index = 0; index < results.length; index++) ...[
+                  _OnlineResultTile(
+                    song: results[index],
+                    isLoading: loadingSongId == results[index].id,
+                    onSelected: onSongSelected,
+                  ),
+                  if (index < results.length - 1)
+                    Divider(color: palette.border.withAlpha(120), height: 20),
+                ],
+              ],
+            ),
+          ),
+        const SizedBox(height: 22),
+      ],
+    );
+  }
+}
+
+class _OnlineResultTile extends StatelessWidget {
+  const _OnlineResultTile({
+    required this.song,
+    required this.isLoading,
+    required this.onSelected,
+  });
+
+  final AurexSong song;
+  final bool isLoading;
+  final ValueChanged<AurexSong> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitleParts = [
+      song.channel,
+      if ((song.duration ?? '').trim().isNotEmpty) song.duration!,
+    ];
+
+    return ListTile(
+      enabled: !isLoading,
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: SizedBox(
+          width: 54,
+          height: 54,
+          child: NetworkArtwork(
+            imageUrl: song.image ?? song.thumbnail,
+            fallbackIcon: Icons.music_note_rounded,
+            iconSize: 28,
+          ),
+        ),
+      ),
+      title: Text(song.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: Text(
+        isLoading ? 'Loading song...' : subtitleParts.join(' - '),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: isLoading
+          ? const SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.4),
+            )
+          : FilledButton.tonalIcon(
+              onPressed: () => onSelected(song),
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: const Text('Play'),
+            ),
+      onTap: isLoading ? null : () => onSelected(song),
     );
   }
 }

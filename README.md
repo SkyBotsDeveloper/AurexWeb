@@ -3,6 +3,7 @@
 Aurex is a premium cross-platform Flutter music app with:
 
 - live music browsing powered by `https://elitejiosaavn-api.vercel.app`
+  with Aurex API fallback playback from `https://aurex-api-two.vercel.app`
 - Supabase-backed authentication, profiles, realtime rooms, and chat
 - a premium audio player with lyrics, queue management, and offline downloads
 - Android-first delivery with web-ready architecture and optional Windows support
@@ -34,8 +35,34 @@ C:\Users\strad\develop\flutter\bin\flutter.bat analyze
 ```
 
 For Vercel, set these as project environment variables instead of committing or
-shipping `.env`: `JIOSAAVN_BASE_URL`, `SUPABASE_URL`,
+shipping `.env`: `JIOSAAVN_BASE_URL`, `AUREX_API_BASE_URL`, `SUPABASE_URL`,
 `SUPABASE_PUBLISHABLE_KEY`, `AUTH_REDIRECT_SCHEME`, and `AUTH_REDIRECT_HOST`.
+
+## Aurex API fallback
+
+The app keeps the existing music catalog/API as the primary source. Search first
+queries the existing source and renders those results without calling Aurex API.
+If the primary result is empty, the Search screen shows a small online loading
+state and calls:
+
+```text
+GET {AUREX_API_BASE_URL}/api/search?q=<query>&limit=10
+```
+
+When primary results exist, users can still click `Search online too` to fetch
+fallback results in a separate `Online results` section.
+
+Online results are metadata-only and cached in memory for a short time. Stream
+URLs are never persisted. A stream is resolved only after the user selects an
+online result:
+
+```text
+GET {AUREX_API_BASE_URL}/api/resolve?videoId=<videoId>&format=mp3
+```
+
+Playback uses `audio.streamLink` first, then `audio.directLink`. The clicked
+online row shows its own loading state while resolving so the rest of the app
+stays interactive.
 
 ## Supabase
 

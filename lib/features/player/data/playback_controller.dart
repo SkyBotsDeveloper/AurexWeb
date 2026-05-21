@@ -12,6 +12,7 @@ import '../../../core/config/app_providers.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/storage/file_ops.dart';
 import '../../../core/utils/error_messages.dart';
+import '../../music/data/aurex_api_client.dart';
 import '../../library/data/library_repository.dart';
 import '../../music/domain/music_models.dart';
 import '../../rooms/data/room_session_controller.dart';
@@ -502,6 +503,20 @@ class PlaybackController {
   }
 
   Future<Uri?> _resolveTrackUri(Track track) async {
+    if (track.isAurexSource) {
+      final inMemoryUrl = track.bestAudioUrl(AudioQuality.kbps160);
+      if (inMemoryUrl != null) {
+        return Uri.tryParse(inMemoryUrl);
+      }
+      final uri = await _ref
+          .read(aurexApiClientProvider)
+          .resolveTrackUri(track);
+      AppLogger.instance.d(
+        'Resolved Aurex fallback audio for ${track.id}: ${uri ?? 'none'}',
+      );
+      return uri;
+    }
+
     final download = await _libraryRepository.getDownload(track.id);
     if (download != null && await fileExists(download.localPath)) {
       AppLogger.instance.d(

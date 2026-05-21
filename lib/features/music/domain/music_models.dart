@@ -217,6 +217,8 @@ class Track {
     required this.label,
     required this.playCount,
     required this.copyright,
+    this.source = 'local',
+    this.externalId,
   });
 
   final String id;
@@ -236,6 +238,8 @@ class Track {
   final String? label;
   final int? playCount;
   final String? copyright;
+  final String source;
+  final String? externalId;
 
   String get artistNames {
     final names = artists.map((artist) => artist.name).join(', ').trim();
@@ -268,6 +272,19 @@ class Track {
             .firstWhereOrNull((item) => item.quality == quality.key)
             ?.url ??
         validLinks.last.url;
+  }
+
+  bool get isAurexSource => source == 'aurex' || id.startsWith('aurex-');
+
+  String? get aurexVideoId {
+    if (!isAurexSource) {
+      return null;
+    }
+    final candidate = externalId?.trim();
+    if (candidate != null && candidate.isNotEmpty) {
+      return candidate;
+    }
+    return id.startsWith('aurex-') ? id.substring(6) : null;
   }
 
   factory Track.fromJson(Map<String, dynamic> json) {
@@ -306,6 +323,8 @@ class Track {
       label: readString(json['label']),
       playCount: readInt(json['playCount']),
       copyright: readString(json['copyright']),
+      source: readString(json['source']) ?? 'local',
+      externalId: readString(json['externalId']) ?? readString(json['videoId']),
     );
   }
 
@@ -316,7 +335,9 @@ class Track {
     'duration': duration?.inSeconds,
     'image': image.map((item) => item.toJson()).toList(),
     'artists': {'all': artists.map((item) => item.toJson()).toList()},
-    'downloadUrl': audioLinks.map((item) => item.toJson()).toList(),
+    'downloadUrl': isAurexSource
+        ? const <Map<String, dynamic>>[]
+        : audioLinks.map((item) => item.toJson()).toList(),
     'language': language,
     'hasLyrics': hasLyrics,
     'lyricsId': lyricsId,
@@ -326,7 +347,118 @@ class Track {
     'label': label,
     'playCount': playCount,
     'copyright': copyright,
+    'source': source,
+    'externalId': externalId,
   };
+}
+
+class AurexSong {
+  const AurexSong({
+    required this.id,
+    required this.title,
+    required this.artist,
+    required this.channel,
+    required this.duration,
+    required this.thumbnail,
+    required this.image,
+    required this.videoId,
+    required this.youtubeUrl,
+  });
+
+  final String id;
+  final String source = 'aurex';
+  final String title;
+  final String artist;
+  final String channel;
+  final String? duration;
+  final String? thumbnail;
+  final String? image;
+  final String videoId;
+  final String? youtubeUrl;
+  String? get audioUrl => null;
+
+  Track toTrack({String? audioUrl}) {
+    final artworkUrl = image ?? thumbnail;
+    return Track(
+      id: id,
+      title: title,
+      albumId: null,
+      albumName: 'Aurex Online',
+      duration: _parseDuration(duration),
+      image: artworkUrl == null || artworkUrl.isEmpty
+          ? const []
+          : [
+              MediaImage(quality: '500x500', url: artworkUrl),
+              MediaImage(quality: '150x150', url: artworkUrl),
+            ],
+      artists: [
+        ArtistRef(
+          id: channel,
+          name: artist,
+          role: 'primary',
+          image: const [],
+          url: null,
+        ),
+      ],
+      audioLinks: audioUrl == null || audioUrl.trim().isEmpty
+          ? const []
+          : [AudioLink(quality: AudioQuality.kbps160.key, url: audioUrl)],
+      language: null,
+      hasLyrics: false,
+      lyricsId: null,
+      url: youtubeUrl,
+      explicitContent: false,
+      year: null,
+      label: 'Aurex API',
+      playCount: null,
+      copyright: null,
+      source: source,
+      externalId: videoId,
+    );
+  }
+
+  static Duration? _parseDuration(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return null;
+    }
+    final parts = value.split(':').map((part) => int.tryParse(part)).toList();
+    if (parts.any((part) => part == null)) {
+      return null;
+    }
+    if (parts.length == 2) {
+      return Duration(minutes: parts[0]!, seconds: parts[1]!);
+    }
+    if (parts.length == 3) {
+      return Duration(hours: parts[0]!, minutes: parts[1]!, seconds: parts[2]!);
+    }
+    return null;
+  }
+}
+
+class AurexResolvedAudio {
+  const AurexResolvedAudio({
+    required this.videoId,
+    required this.youtubeUrl,
+    required this.streamLink,
+    required this.directLink,
+  });
+
+  final String videoId;
+  final String? youtubeUrl;
+  final String? streamLink;
+  final String? directLink;
+
+  String? get playableUrl {
+    final stream = streamLink?.trim();
+    if (stream != null && stream.isNotEmpty) {
+      return stream;
+    }
+    final direct = directLink?.trim();
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
+    return null;
+  }
 }
 
 class CollectionDetail {

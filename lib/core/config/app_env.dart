@@ -1,6 +1,7 @@
 class AppEnv {
   AppEnv({
     required this.musicApiBaseUrl,
+    required this.aurexApiBaseUrl,
     required this.supabaseUrl,
     required this.supabaseAnonKey,
     required this.authRedirectScheme,
@@ -8,6 +9,7 @@ class AppEnv {
   });
 
   final String musicApiBaseUrl;
+  final String aurexApiBaseUrl;
   final String? supabaseUrl;
   final String? supabaseAnonKey;
   final String authRedirectScheme;
@@ -22,6 +24,7 @@ class AppEnv {
   static Future<AppEnv> load() async {
     return AppEnv(
       musicApiBaseUrl: _clean(_musicApiBaseUrl) ?? _defaultMusicApiBaseUrl,
+      aurexApiBaseUrl: _clean(_aurexApiBaseUrl) ?? _defaultAurexApiBaseUrl,
       supabaseUrl: _clean(_supabaseUrl),
       supabaseAnonKey:
           _clean(_supabasePublishableKey) ?? _clean(_supabaseAnonKey),
@@ -31,9 +34,14 @@ class AppEnv {
   }
 
   static const _defaultMusicApiBaseUrl = 'https://elitejiosaavn-api.vercel.app';
+  static const _defaultAurexApiBaseUrl = 'https://aurex-api-two.vercel.app';
   static const _musicApiBaseUrl = String.fromEnvironment(
     'JIOSAAVN_BASE_URL',
     defaultValue: _defaultMusicApiBaseUrl,
+  );
+  static const _aurexApiBaseUrl = String.fromEnvironment(
+    'AUREX_API_BASE_URL',
+    defaultValue: _defaultAurexApiBaseUrl,
   );
   static const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const _supabasePublishableKey = String.fromEnvironment(
