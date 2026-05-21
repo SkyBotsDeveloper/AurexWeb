@@ -415,6 +415,10 @@ class _FeaturedStrip extends StatelessWidget {
               height: 52,
               child: NetworkArtwork(
                 imageUrl: item.artworkUrl,
+                cleanArtworkQuery: item.title,
+                cleanArtworkType: item.type.name,
+                cleanArtworkSubtitle:
+                    item.artistText ?? item.description ?? item.subtitle,
                 fallbackIcon: Icons.auto_awesome_rounded,
                 iconSize: 28,
               ),
@@ -495,6 +499,9 @@ class _RecentTrackTile extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: NetworkArtwork(
                   imageUrl: track.artworkUrl,
+                  cleanArtworkQuery: track.title,
+                  cleanArtworkType: 'song',
+                  cleanArtworkSubtitle: track.artistNames,
                   fallbackIcon: Icons.music_note_rounded,
                   iconSize: 28,
                 ),

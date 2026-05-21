@@ -110,6 +110,12 @@ class _ArtworkCardState extends State<ArtworkCard> {
                                   ),
                                   child: NetworkArtwork(
                                     imageUrl: widget.item.artworkUrl,
+                                    cleanArtworkQuery: widget.item.title,
+                                    cleanArtworkType: widget.item.type.name,
+                                    cleanArtworkSubtitle:
+                                        widget.item.artistText ??
+                                        widget.item.description ??
+                                        widget.item.subtitle,
                                     fallbackIcon: Icons.music_note_rounded,
                                     iconSize: 38,
                                   ),

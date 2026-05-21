@@ -81,6 +81,11 @@ class CollectionDetailScreen extends ConsumerWidget {
                   children: [
                     _DetailArtwork(
                       artworkUrl: detail.artworkUrl,
+                      cleanArtworkQuery: detail.title,
+                      cleanArtworkType: kind == CollectionKind.album
+                          ? 'album'
+                          : 'playlist',
+                      cleanArtworkSubtitle: metadata,
                       fallbackIcon: kind == CollectionKind.album
                           ? Icons.album_rounded
                           : Icons.queue_music_rounded,
@@ -262,10 +267,19 @@ class CollectionDetailScreen extends ConsumerWidget {
 }
 
 class _DetailArtwork extends StatelessWidget {
-  const _DetailArtwork({required this.artworkUrl, required this.fallbackIcon});
+  const _DetailArtwork({
+    required this.artworkUrl,
+    required this.fallbackIcon,
+    required this.cleanArtworkQuery,
+    required this.cleanArtworkType,
+    required this.cleanArtworkSubtitle,
+  });
 
   final String? artworkUrl;
   final IconData fallbackIcon;
+  final String cleanArtworkQuery;
+  final String cleanArtworkType;
+  final String cleanArtworkSubtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -276,6 +290,9 @@ class _DetailArtwork extends StatelessWidget {
         height: 144,
         child: NetworkArtwork(
           imageUrl: artworkUrl,
+          cleanArtworkQuery: cleanArtworkQuery,
+          cleanArtworkType: cleanArtworkType,
+          cleanArtworkSubtitle: cleanArtworkSubtitle,
           fallbackIcon: fallbackIcon,
           iconSize: 40,
         ),

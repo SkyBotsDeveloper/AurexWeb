@@ -229,6 +229,10 @@ class _DiscoveryHero extends ConsumerWidget {
               height: 144,
               child: NetworkArtwork(
                 imageUrl: source.artworkUrl,
+                cleanArtworkQuery: source.title,
+                cleanArtworkType: source.type.name,
+                cleanArtworkSubtitle:
+                    source.artistText ?? source.description ?? source.subtitle,
                 fallbackIcon: data.kind == DiscoveryKind.radio
                     ? Icons.radio_rounded
                     : Icons.category_rounded,
@@ -343,6 +347,12 @@ class _SongResultsList extends ConsumerWidget {
                   height: 54,
                   child: NetworkArtwork(
                     imageUrl: visibleItems[index].artworkUrl,
+                    cleanArtworkQuery: visibleItems[index].title,
+                    cleanArtworkType: visibleItems[index].type.name,
+                    cleanArtworkSubtitle:
+                        visibleItems[index].artistText ??
+                        visibleItems[index].description ??
+                        visibleItems[index].subtitle,
                     fallbackIcon: Icons.music_note_rounded,
                     iconSize: 28,
                   ),

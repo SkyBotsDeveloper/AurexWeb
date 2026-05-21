@@ -88,6 +88,9 @@ class MiniPlayer extends ConsumerWidget {
                               height: ultraCompact ? 42 : (compact ? 46 : 52),
                               child: NetworkArtwork(
                                 imageUrl: track.artworkUrl,
+                                cleanArtworkQuery: track.title,
+                                cleanArtworkType: 'song',
+                                cleanArtworkSubtitle: track.artistNames,
                                 fallbackIcon: Icons.music_note_rounded,
                                 iconSize: 26,
                               ),

@@ -67,6 +67,9 @@ class SongDetailScreen extends ConsumerWidget {
                         height: 144,
                         child: NetworkArtwork(
                           imageUrl: track.artworkUrl,
+                          cleanArtworkQuery: track.title,
+                          cleanArtworkType: 'song',
+                          cleanArtworkSubtitle: track.artistNames,
                           fallbackIcon: Icons.music_note_rounded,
                           iconSize: 40,
                         ),

@@ -221,6 +221,7 @@ class _PlaylistArtwork extends StatelessWidget {
         .map((track) => track.artworkUrl)
         .whereType<String>()
         .firstOrNull;
+    final firstTrack = playlist.tracks.firstOrNull;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
@@ -229,6 +230,9 @@ class _PlaylistArtwork extends StatelessWidget {
         height: 144,
         child: NetworkArtwork(
           imageUrl: firstArtwork,
+          cleanArtworkQuery: firstTrack?.title ?? playlist.name,
+          cleanArtworkType: firstTrack == null ? 'playlist' : 'song',
+          cleanArtworkSubtitle: firstTrack?.artistNames,
           fallbackIcon: Icons.queue_music_rounded,
           iconSize: 42,
         ),
@@ -261,6 +265,9 @@ class _PlaylistTrackTile extends ConsumerWidget {
           height: 48,
           child: NetworkArtwork(
             imageUrl: track.artworkUrl,
+            cleanArtworkQuery: track.title,
+            cleanArtworkType: 'song',
+            cleanArtworkSubtitle: track.artistNames,
             fallbackIcon: Icons.music_note_rounded,
             iconSize: 26,
           ),

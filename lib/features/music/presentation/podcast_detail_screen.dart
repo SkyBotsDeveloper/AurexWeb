@@ -130,6 +130,9 @@ class _PodcastHero extends ConsumerWidget {
               height: 144,
               child: NetworkArtwork(
                 imageUrl: detail.artworkUrl,
+                cleanArtworkQuery: detail.title,
+                cleanArtworkType: 'playlist',
+                cleanArtworkSubtitle: detail.description,
                 fallbackIcon: Icons.podcasts_rounded,
                 iconSize: 42,
               ),
@@ -258,6 +261,9 @@ class _EpisodeTile extends ConsumerWidget {
             height: 48,
             child: NetworkArtwork(
               imageUrl: episode.artworkUrl,
+              cleanArtworkQuery: episode.title,
+              cleanArtworkType: 'song',
+              cleanArtworkSubtitle: episode.artistNames,
               fallbackIcon: Icons.podcasts_rounded,
               iconSize: 26,
             ),

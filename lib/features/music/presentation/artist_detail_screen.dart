@@ -48,6 +48,8 @@ class ArtistDetailScreen extends ConsumerWidget {
                   aspectRatio: 1,
                   child: NetworkArtwork(
                     imageUrl: artist.artworkUrl,
+                    cleanArtworkQuery: artist.name,
+                    cleanArtworkType: 'artist',
                     fallbackIcon: Icons.person_rounded,
                     iconSize: 64,
                   ),

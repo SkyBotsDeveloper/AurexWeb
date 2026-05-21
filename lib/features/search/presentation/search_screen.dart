@@ -268,6 +268,10 @@ class _TopResultCard extends ConsumerWidget {
                 height: 76,
                 child: NetworkArtwork(
                   imageUrl: item.artworkUrl,
+                  cleanArtworkQuery: item.title,
+                  cleanArtworkType: item.type.name,
+                  cleanArtworkSubtitle:
+                      item.artistText ?? item.description ?? item.subtitle,
                   fallbackIcon: Icons.music_note_rounded,
                   iconSize: 34,
                 ),
@@ -385,6 +389,10 @@ class _BrowseTile extends ConsumerWidget {
                 height: 56,
                 child: NetworkArtwork(
                   imageUrl: item.artworkUrl,
+                  cleanArtworkQuery: item.title,
+                  cleanArtworkType: item.type.name,
+                  cleanArtworkSubtitle:
+                      item.artistText ?? item.description ?? item.subtitle,
                   fallbackIcon: Icons.music_note_rounded,
                   iconSize: 28,
                 ),
@@ -436,6 +444,10 @@ class _SearchResultTile extends ConsumerWidget {
           height: 54,
           child: NetworkArtwork(
             imageUrl: item.artworkUrl,
+            cleanArtworkQuery: item.title,
+            cleanArtworkType: item.type.name,
+            cleanArtworkSubtitle:
+                item.artistText ?? item.description ?? item.subtitle,
             fallbackIcon: Icons.music_note_rounded,
             iconSize: 28,
           ),

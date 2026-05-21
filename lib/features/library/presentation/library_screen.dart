@@ -984,6 +984,9 @@ class _TrackTileCard extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 child: NetworkArtwork(
                   imageUrl: track.artworkUrl,
+                  cleanArtworkQuery: track.title,
+                  cleanArtworkType: 'song',
+                  cleanArtworkSubtitle: track.artistNames,
                   fallbackIcon: Icons.music_note_rounded,
                   iconSize: 30,
                 ),
