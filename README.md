@@ -36,10 +36,14 @@ C:\Users\strad\develop\flutter\bin\flutter.bat analyze
 
 For Vercel, the music, artwork, and Aurex API calls default to same-origin
 rewrites in `vercel.json`: `/music-api`, `/artwork-api`, and `/aurex-api`.
-Only set `JIOSAAVN_BASE_URL`, `AUREX_API_BASE_URL`, or
-`CLEAN_ARTWORK_API_BASE_URL` when a custom deployment needs different routes.
+Existing direct API environment values are ignored during Vercel builds so the
+browser bundle keeps using those proxy routes. Only set `JIOSAAVN_WEB_BASE_URL`,
+`AUREX_WEB_BASE_URL`, or `CLEAN_ARTWORK_WEB_BASE_URL` when a custom Vercel
+deployment needs different same-origin routes.
 For local Flutter web without Vercel rewrites or for mobile builds, set those
-API variables to reachable absolute API origins in your private `.env`.
+local API variables to reachable absolute API origins in your private `.env`:
+`JIOSAAVN_BASE_URL`, `AUREX_API_BASE_URL`, and
+`CLEAN_ARTWORK_API_BASE_URL`.
 Keep Supabase values in project environment variables instead of committing or
 shipping `.env`: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`,
 `AUTH_REDIRECT_SCHEME`, and `AUTH_REDIRECT_HOST`.

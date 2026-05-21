@@ -9,10 +9,20 @@ fi
 
 export PATH="$FLUTTER_ROOT/bin:$PATH"
 
+if [ -n "${VERCEL:-}" ] || [ -n "${VERCEL_ENV:-}" ]; then
+  music_api_base="${JIOSAAVN_WEB_BASE_URL:-/music-api}"
+  aurex_api_base="${AUREX_WEB_BASE_URL:-/aurex-api}"
+  clean_artwork_api_base="${CLEAN_ARTWORK_WEB_BASE_URL:-/artwork-api}"
+else
+  music_api_base="${JIOSAAVN_BASE_URL:-/music-api}"
+  aurex_api_base="${AUREX_API_BASE_URL:-/aurex-api}"
+  clean_artwork_api_base="${CLEAN_ARTWORK_API_BASE_URL:-/artwork-api}"
+fi
+
 dart_defines=(
-  "--dart-define=JIOSAAVN_BASE_URL=${JIOSAAVN_BASE_URL:-/music-api}"
-  "--dart-define=AUREX_API_BASE_URL=${AUREX_API_BASE_URL:-/aurex-api}"
-  "--dart-define=CLEAN_ARTWORK_API_BASE_URL=${CLEAN_ARTWORK_API_BASE_URL:-/artwork-api}"
+  "--dart-define=JIOSAAVN_BASE_URL=${music_api_base}"
+  "--dart-define=AUREX_API_BASE_URL=${aurex_api_base}"
+  "--dart-define=CLEAN_ARTWORK_API_BASE_URL=${clean_artwork_api_base}"
   "--dart-define=SUPABASE_URL=${SUPABASE_URL:-}"
   "--dart-define=SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:-${SUPABASE_ANON_KEY:-}}"
   "--dart-define=AUTH_REDIRECT_SCHEME=${AUTH_REDIRECT_SCHEME:-aurex}"
