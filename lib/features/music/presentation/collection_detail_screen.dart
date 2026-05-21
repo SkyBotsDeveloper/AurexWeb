@@ -223,7 +223,7 @@ class CollectionDetailScreen extends ConsumerWidget {
                           ),
                           title: Text(entry.value.title),
                           subtitle: Text(
-                            '${entry.value.artistNames} • ${formatDuration(entry.value.duration)}',
+                            '${entry.value.artistNames} / ${formatDuration(entry.value.duration)}',
                           ),
                           trailing: const Icon(Icons.play_arrow_rounded),
                           onTap: roomSession.controlsLocked

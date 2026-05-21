@@ -158,6 +158,43 @@ class MusicRepository {
     );
   }
 
+  Future<DiscoverySearchResults> searchDiscovery(String query) async {
+    final results = await Future.wait([
+      _searchMediaGroup('songs', query),
+      _searchMediaGroup('playlists', query),
+      _searchMediaGroup('albums', query),
+    ]);
+
+    return DiscoverySearchResults(
+      songs: results[0],
+      playlists: results[1],
+      albums: results[2],
+    );
+  }
+
+  Future<List<MediaSummary>> _searchMediaGroup(
+    String group,
+    String query,
+  ) async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/search/$group',
+        queryParameters: {'query': query},
+      );
+      return readMapList(
+        readMap(response.data?['data'])['results'],
+      ).map(MediaSummary.fromJson).where(_hasUsableSummary).toList();
+    } on DioException catch (error) {
+      if (kDebugMode) {
+        debugPrint('Search group $group failed: ${error.message}');
+      }
+      return const [];
+    }
+  }
+
+  bool _hasUsableSummary(MediaSummary item) =>
+      item.id.trim().isNotEmpty && item.title.trim().isNotEmpty;
+
   Future<Track> fetchSong(String id) async {
     final response = await _dio.get<Map<String, dynamic>>('/api/songs/$id');
     final payload = response.data?['data'];
@@ -186,6 +223,42 @@ class MusicRepository {
   Future<ArtistDetail> fetchArtist(String id) async {
     final response = await _dio.get<Map<String, dynamic>>('/api/artists/$id');
     return ArtistDetail.fromJson(readMap(response.data?['data']));
+  }
+
+  Future<DiscoveryDetail> fetchChannel(String id) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/channels/${Uri.encodeComponent(id)}',
+    );
+    final data = readMap(response.data?['data']);
+    return DiscoveryDetail(
+      source: MediaSummary.fromJson(readMap(data['channel'])),
+      related: readMapList(
+        data['related'],
+      ).map(MediaSummary.fromJson).where(_hasUsableSummary).toList(),
+      nowPlaying: null,
+      message: null,
+    );
+  }
+
+  Future<DiscoveryDetail> fetchRadioStation(String id) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/radio/${Uri.encodeComponent(id)}',
+    );
+    final data = readMap(response.data?['data']);
+    final nowPlaying = readMap(data['nowPlaying']);
+    return DiscoveryDetail(
+      source: MediaSummary.fromJson(readMap(data['station'])),
+      related: const [],
+      nowPlaying: nowPlaying.isEmpty ? null : Track.fromJson(nowPlaying),
+      message: readString(data['message']),
+    );
+  }
+
+  Future<PodcastDetail> fetchPodcast(String id) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/podcasts/${Uri.encodeComponent(id)}',
+    );
+    return PodcastDetail.fromJson(readMap(response.data?['data']));
   }
 
   Future<LyricsData> fetchLyrics(String id) async {

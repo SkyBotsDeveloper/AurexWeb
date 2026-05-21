@@ -2,6 +2,25 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "bash scripts/vercel_build.sh",
   "outputDirectory": "build/web",
+  "rewrites": [
+    { "source": "/home", "destination": "/index.html" },
+    { "source": "/search", "destination": "/index.html" },
+    { "source": "/room", "destination": "/index.html" },
+    { "source": "/room/:id", "destination": "/index.html" },
+    { "source": "/library", "destination": "/index.html" },
+    { "source": "/profile", "destination": "/index.html" },
+    { "source": "/auth", "destination": "/index.html" },
+    { "source": "/auth/recovery", "destination": "/index.html" },
+    { "source": "/settings", "destination": "/index.html" },
+    { "source": "/about", "destination": "/index.html" },
+    { "source": "/player", "destination": "/index.html" },
+    { "source": "/album/:id", "destination": "/index.html" },
+    { "source": "/playlist/:id", "destination": "/index.html" },
+    { "source": "/artist/:id", "destination": "/index.html" },
+    { "source": "/discovery/:kind/:id", "destination": "/index.html" },
+    { "source": "/show/:id", "destination": "/index.html" },
+    { "source": "/song/:id", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

@@ -8,6 +8,7 @@ enum MusicItemType {
   artist,
   playlist,
   radio,
+  channel,
   podcast,
   show,
   unknown;
@@ -23,7 +24,10 @@ enum MusicItemType {
       case 'playlist':
         return MusicItemType.playlist;
       case 'radio':
+      case 'radio_station':
         return MusicItemType.radio;
+      case 'channel':
+        return MusicItemType.channel;
       case 'podcast':
         return MusicItemType.podcast;
       case 'show':
@@ -233,7 +237,13 @@ class Track {
   final int? playCount;
   final String? copyright;
 
-  String get artistNames => artists.map((artist) => artist.name).join(', ');
+  String get artistNames {
+    final names = artists.map((artist) => artist.name).join(', ').trim();
+    if (names.isNotEmpty) {
+      return names;
+    }
+    return albumName ?? 'Aurex';
+  }
 
   String? get artworkUrl =>
       image.firstWhereOrNull((item) => item.quality == '500x500')?.url ??
@@ -267,14 +277,16 @@ class Track {
         : readMapList(artistsMap['primary']);
 
     final albumMap = readMap(json['album']);
+    final showMap = readMap(json['show']);
 
     return Track(
       id: readString(json['id']) ?? '',
       title:
           readString(json['title']) ?? readString(json['name']) ?? 'Untitled',
-      albumId: readString(albumMap['id']),
+      albumId: readString(albumMap['id']) ?? readString(showMap['id']),
       albumName:
           readString(albumMap['name']) ??
+          readString(showMap['name']) ??
           readString(json['album']) ??
           readString(json['albumName']),
       duration: readInt(json['duration']) == null
@@ -474,6 +486,79 @@ class LyricsBundle {
       plain != null &&
       (plain!.lyrics.trim().isNotEmpty || plain!.lines.isNotEmpty);
   bool get hasAny => hasSynced || hasPlain;
+}
+
+class DiscoveryDetail {
+  const DiscoveryDetail({
+    required this.source,
+    required this.related,
+    required this.nowPlaying,
+    required this.message,
+  });
+
+  final MediaSummary source;
+  final List<MediaSummary> related;
+  final Track? nowPlaying;
+  final String? message;
+}
+
+class DiscoverySearchResults {
+  const DiscoverySearchResults({
+    required this.songs,
+    required this.playlists,
+    required this.albums,
+  });
+
+  final List<MediaSummary> songs;
+  final List<MediaSummary> playlists;
+  final List<MediaSummary> albums;
+
+  bool get isEmpty => songs.isEmpty && playlists.isEmpty && albums.isEmpty;
+}
+
+class PodcastDetail {
+  const PodcastDetail({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.image,
+    required this.language,
+    required this.fanCount,
+    required this.totalEpisodes,
+    required this.episodes,
+  });
+
+  final String id;
+  final String title;
+  final String? description;
+  final List<MediaImage> image;
+  final String? language;
+  final int? fanCount;
+  final int? totalEpisodes;
+  final List<Track> episodes;
+
+  String? get artworkUrl =>
+      image.firstWhereOrNull((item) => item.quality == '500x500')?.url ??
+      image.firstOrNull?.url;
+
+  factory PodcastDetail.fromJson(Map<String, dynamic> json) {
+    final squareImages = readMapList(json['squareImage']);
+    final images = squareImages.isNotEmpty
+        ? squareImages
+        : readMapList(json['image']);
+
+    return PodcastDetail(
+      id: readString(json['id']) ?? '',
+      title:
+          readString(json['name']) ?? readString(json['title']) ?? 'Untitled',
+      description: readString(json['description']),
+      image: images.map(MediaImage.fromJson).toList(),
+      language: readString(json['language']),
+      fanCount: readInt(json['fanCount']),
+      totalEpisodes: readInt(json['totalEpisodes']),
+      episodes: readMapList(json['episodes']).map(Track.fromJson).toList(),
+    );
+  }
 }
 
 class SyncedLyricLine {

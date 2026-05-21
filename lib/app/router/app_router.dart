@@ -14,7 +14,10 @@ import '../../features/home/presentation/home_screen.dart';
 import '../../features/library/presentation/library_screen.dart';
 import '../../features/music/presentation/artist_detail_screen.dart';
 import '../../features/music/presentation/collection_detail_screen.dart';
+import '../../features/music/presentation/discovery_detail_screen.dart';
+import '../../features/music/presentation/podcast_detail_screen.dart';
 import '../../features/music/presentation/song_detail_screen.dart';
+import '../../features/music/domain/music_models.dart';
 import '../../features/player/data/playback_controller.dart';
 import '../../features/player/data/playback_models.dart';
 import '../../features/player/presentation/mini_player.dart';
@@ -27,7 +30,7 @@ import '../../features/settings/presentation/settings_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: '/home',
+    redirect: (context, state) => state.uri.path == '/' ? '/home' : null,
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
@@ -107,6 +110,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/artist/:id',
         builder: (context, state) =>
             ArtistDetailScreen(id: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/discovery/:kind/:id',
+        builder: (context, state) {
+          final kind = state.pathParameters['kind'] == 'radio'
+              ? DiscoveryKind.radio
+              : DiscoveryKind.channel;
+          return DiscoveryDetailScreen(
+            id: Uri.decodeComponent(state.pathParameters['id']!),
+            kind: kind,
+            initial: state.extra is MediaSummary
+                ? state.extra as MediaSummary
+                : null,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/show/:id',
+        builder: (context, state) => PodcastDetailScreen(
+          id: Uri.decodeComponent(state.pathParameters['id']!),
+          initial: state.extra is MediaSummary
+              ? state.extra as MediaSummary
+              : null,
+        ),
       ),
       GoRoute(
         path: '/song/:id',

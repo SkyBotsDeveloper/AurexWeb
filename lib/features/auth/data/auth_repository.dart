@@ -25,10 +25,7 @@ final authEventProvider = StreamProvider<AuthState?>((ref) {
 });
 
 class AuthSessionState {
-  const AuthSessionState({
-    required this.isConfigured,
-    required this.session,
-  });
+  const AuthSessionState({required this.isConfigured, required this.session});
 
   final bool isConfigured;
   final Session? session;
@@ -105,9 +102,7 @@ class AuthRepository {
 
   void _requireClient() {
     if (_client == null) {
-      throw const AuthException(
-        'Sign in is not available right now.',
-      );
+      throw const AuthException('Sign in is not available right now.');
     }
   }
 
@@ -115,13 +110,13 @@ class AuthRepository {
     if (!kIsWeb) {
       return _env.mobileAuthRedirectUrl;
     }
-    return '${Uri.base.origin}/#/home';
+    return '${Uri.base.origin}/home';
   }
 
   String? _passwordResetRedirectUrl() {
     if (!kIsWeb) {
       return _env.mobileAuthRedirectUrl;
     }
-    return '${Uri.base.origin}/#/auth/recovery';
+    return '${Uri.base.origin}/auth/recovery';
   }
 }

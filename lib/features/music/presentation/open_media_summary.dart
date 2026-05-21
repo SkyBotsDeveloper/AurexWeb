@@ -22,7 +22,9 @@ Future<void> openMediaSummary(
           );
           return;
         }
-        final track = await ref.read(musicRepositoryProvider).fetchSong(item.id);
+        final track = await ref
+            .read(musicRepositoryProvider)
+            .fetchSong(item.id);
         await ref.read(playbackControllerProvider).playTrack(track);
         return;
       case MusicItemType.album:
@@ -40,6 +42,28 @@ Future<void> openMediaSummary(
           context.push('/artist/${item.id}');
         }
         return;
+      case MusicItemType.radio:
+        if (context.mounted) {
+          context.push(
+            '/discovery/radio/${Uri.encodeComponent(item.id)}',
+            extra: item,
+          );
+        }
+        return;
+      case MusicItemType.channel:
+        if (context.mounted) {
+          context.push(
+            '/discovery/channel/${Uri.encodeComponent(item.id)}',
+            extra: item,
+          );
+        }
+        return;
+      case MusicItemType.podcast:
+      case MusicItemType.show:
+        if (context.mounted) {
+          context.push('/show/${Uri.encodeComponent(item.id)}', extra: item);
+        }
+        return;
       default:
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('This item is not playable yet.')),
@@ -48,9 +72,9 @@ Future<void> openMediaSummary(
     }
   } catch (error) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.toString())));
     }
   }
 }

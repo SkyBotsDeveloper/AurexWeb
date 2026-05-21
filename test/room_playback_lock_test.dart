@@ -413,6 +413,11 @@ class FakeMusicRepository implements MusicRepository {
   Future<CollectionDetail> fetchAlbum(String id) async => _collection;
 
   @override
+  Future<DiscoveryDetail> fetchChannel(String id) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<ArtistDetail> fetchArtist(String id) {
     throw UnimplementedError();
   }
@@ -435,6 +440,16 @@ class FakeMusicRepository implements MusicRepository {
   Future<CollectionDetail> fetchPlaylist(String id) async => _collection;
 
   @override
+  Future<PodcastDetail> fetchPodcast(String id) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<DiscoveryDetail> fetchRadioStation(String id) {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<Track> fetchSong(String id) async => _track;
 
   @override
@@ -445,6 +460,11 @@ class FakeMusicRepository implements MusicRepository {
 
   @override
   Future<SearchResults> searchAll(String query) {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<DiscoverySearchResults> searchDiscovery(String query) {
     throw UnimplementedError();
   }
 }

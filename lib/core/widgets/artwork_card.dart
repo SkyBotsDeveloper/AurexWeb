@@ -160,6 +160,9 @@ class ArtworkCard extends StatelessWidget {
       MusicItemType.album => 'Album',
       MusicItemType.artist => 'Artist',
       MusicItemType.playlist => 'Playlist',
+      MusicItemType.radio => 'Radio',
+      MusicItemType.channel => 'Category',
+      MusicItemType.podcast || MusicItemType.show => 'Show',
       _ => 'Listen',
     };
   }
@@ -170,6 +173,9 @@ class ArtworkCard extends StatelessWidget {
       MusicItemType.album => Icons.album_rounded,
       MusicItemType.artist => Icons.person_rounded,
       MusicItemType.playlist => Icons.queue_music_rounded,
+      MusicItemType.radio => Icons.radio_rounded,
+      MusicItemType.channel => Icons.category_rounded,
+      MusicItemType.podcast || MusicItemType.show => Icons.podcasts_rounded,
       _ => Icons.arrow_forward_rounded,
     };
   }
