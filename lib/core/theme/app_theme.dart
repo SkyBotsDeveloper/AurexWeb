@@ -3,13 +3,27 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 class AppTheme {
-  static ThemeData get darkTheme =>
-      _buildTheme(AppColors.dark, Brightness.dark);
+  static ThemeData darkTheme([
+    AppThemeColorPreference colorPreference =
+        AppThemeColorPreference.lightningBlue,
+  ]) => _buildTheme(
+    AppColors.dark.withThemeColor(colorPreference),
+    Brightness.dark,
+  );
 
-  static ThemeData get lightTheme =>
-      _buildTheme(AppColors.light, Brightness.light);
+  static ThemeData lightTheme([
+    AppThemeColorPreference colorPreference =
+        AppThemeColorPreference.lightningBlue,
+  ]) => _buildTheme(
+    AppColors.light.withThemeColor(colorPreference),
+    Brightness.light,
+  );
 
   static ThemeData _buildTheme(AurexPalette palette, Brightness brightness) {
+    final onAccent =
+        ThemeData.estimateBrightnessForColor(palette.accent) == Brightness.dark
+        ? Colors.white
+        : const Color(0xFF05070A);
     final scheme = ColorScheme.fromSeed(
       seedColor: palette.accent,
       brightness: brightness,
@@ -29,9 +43,7 @@ class AppTheme {
         tertiary: palette.warning,
         surface: palette.surface,
         onSurface: palette.textPrimary,
-        onPrimary: brightness == Brightness.dark
-            ? palette.background
-            : Colors.white,
+        onPrimary: onAccent,
       ),
       scaffoldBackgroundColor: palette.background,
       canvasColor: palette.background,
@@ -96,9 +108,7 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: palette.accent,
-          foregroundColor: brightness == Brightness.dark
-              ? palette.background
-              : Colors.white,
+          foregroundColor: onAccent,
           minimumSize: const Size(0, 50),
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           shape: RoundedRectangleBorder(

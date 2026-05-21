@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/config/app_providers.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../music/domain/music_models.dart';
 
 final settingsRepositoryProvider = Provider<SettingsRepository>(
@@ -26,30 +27,10 @@ enum AppThemePreference {
   String get label => this == AppThemePreference.light ? 'Light' : 'Dark';
 }
 
-enum AppLogoColorPreference {
-  lightningBlue(Color(0xFF38BDF8), 'Lightning Blue'),
-  aurexRose(Color(0xFFFF4D8D), 'Aurex Rose'),
-  ultraviolet(Color(0xFFA78BFA), 'Ultraviolet'),
-  solarAmber(Color(0xFFF59E0B), 'Solar Amber'),
-  arcticWhite(Color(0xFFEFF6FF), 'Arctic White');
-
-  const AppLogoColorPreference(this.color, this.label);
-
-  final Color color;
-  final String label;
-
-  static AppLogoColorPreference fromKey(String? key) {
-    return values.firstWhere(
-      (color) => color.name == key,
-      orElse: () => AppLogoColorPreference.lightningBlue,
-    );
-  }
-}
-
 class AppSettings {
   const AppSettings({
     required this.themePreference,
-    required this.logoColorPreference,
+    required this.themeColorPreference,
     required this.streamingQuality,
     required this.downloadQuality,
     required this.autoQuality,
@@ -58,7 +39,7 @@ class AppSettings {
   });
 
   final AppThemePreference themePreference;
-  final AppLogoColorPreference logoColorPreference;
+  final AppThemeColorPreference themeColorPreference;
   final AudioQuality streamingQuality;
   final AudioQuality downloadQuality;
   final bool autoQuality;
@@ -67,7 +48,7 @@ class AppSettings {
 
   AppSettings copyWith({
     AppThemePreference? themePreference,
-    AppLogoColorPreference? logoColorPreference,
+    AppThemeColorPreference? themeColorPreference,
     AudioQuality? streamingQuality,
     AudioQuality? downloadQuality,
     bool? autoQuality,
@@ -76,7 +57,7 @@ class AppSettings {
   }) {
     return AppSettings(
       themePreference: themePreference ?? this.themePreference,
-      logoColorPreference: logoColorPreference ?? this.logoColorPreference,
+      themeColorPreference: themeColorPreference ?? this.themeColorPreference,
       streamingQuality: streamingQuality ?? this.streamingQuality,
       downloadQuality: downloadQuality ?? this.downloadQuality,
       autoQuality: autoQuality ?? this.autoQuality,
@@ -93,8 +74,9 @@ class SettingsRepository {
           themePreference: AppThemePreference.fromKey(
             _prefs.getString(_themePreferenceKey),
           ),
-          logoColorPreference: AppLogoColorPreference.fromKey(
-            _prefs.getString(_logoColorPreferenceKey),
+          themeColorPreference: AppThemeColorPreference.fromKey(
+            _prefs.getString(_themeColorPreferenceKey) ??
+                _prefs.getString(_legacyLogoColorPreferenceKey),
           ),
           streamingQuality: AudioQuality.fromKey(
             _prefs.getString(_streamingQualityKey),
@@ -112,7 +94,8 @@ class SettingsRepository {
   final ValueNotifier<AppSettings> notifier;
 
   static const _themePreferenceKey = 'settings.theme_preference';
-  static const _logoColorPreferenceKey = 'settings.logo_color_preference';
+  static const _themeColorPreferenceKey = 'settings.theme_color_preference';
+  static const _legacyLogoColorPreferenceKey = 'settings.logo_color_preference';
   static const _streamingQualityKey = 'settings.streaming_quality';
   static const _downloadQualityKey = 'settings.download_quality';
   static const _autoQualityKey = 'settings.auto_quality';
@@ -126,11 +109,12 @@ class SettingsRepository {
     notifier.value = notifier.value.copyWith(themePreference: preference);
   }
 
-  Future<void> updateLogoColorPreference(
-    AppLogoColorPreference preference,
+  Future<void> updateThemeColorPreference(
+    AppThemeColorPreference preference,
   ) async {
-    await _prefs.setString(_logoColorPreferenceKey, preference.name);
-    notifier.value = notifier.value.copyWith(logoColorPreference: preference);
+    await _prefs.setString(_themeColorPreferenceKey, preference.name);
+    await _prefs.remove(_legacyLogoColorPreferenceKey);
+    notifier.value = notifier.value.copyWith(themeColorPreference: preference);
   }
 
   Future<void> updateStreamingQuality(AudioQuality quality) async {

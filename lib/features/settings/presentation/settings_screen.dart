@@ -60,25 +60,27 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
-                      'Logo Color',
+                      'Theme Color',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
-                      children: AppLogoColorPreference.values.map((preference) {
+                      children: AppThemeColorPreference.values.map((
+                        preference,
+                      ) {
                         final selected =
-                            current.logoColorPreference == preference;
+                            current.themeColorPreference == preference;
                         return ChoiceChip(
-                          avatar: _LogoColorSwatch(
-                            color: preference.color,
+                          avatar: _ThemeColorSwatch(
+                            color: preference.accent,
                             selected: selected,
                           ),
                           label: Text(preference.label),
                           selected: selected,
                           onSelected: (_) =>
-                              settings.updateLogoColorPreference(preference),
+                              settings.updateThemeColorPreference(preference),
                         );
                       }).toList(),
                     ),
@@ -203,8 +205,8 @@ class SettingsScreen extends ConsumerWidget {
   }
 }
 
-class _LogoColorSwatch extends StatelessWidget {
-  const _LogoColorSwatch({required this.color, required this.selected});
+class _ThemeColorSwatch extends StatelessWidget {
+  const _ThemeColorSwatch({required this.color, required this.selected});
 
   final Color color;
   final bool selected;

@@ -1,5 +1,25 @@
 import 'package:flutter/material.dart';
 
+enum AppThemeColorPreference {
+  lightningBlue('Lightning Blue', Color(0xFF38BDF8), Color(0xFFA78BFA)),
+  aurexRose('Aurex Rose', Color(0xFFFF4D8D), Color(0xFF38BDF8)),
+  ultraviolet('Ultraviolet', Color(0xFFA78BFA), Color(0xFF38BDF8)),
+  solarAmber('Solar Amber', Color(0xFFF59E0B), Color(0xFFFF4D8D));
+
+  const AppThemeColorPreference(this.label, this.accent, this.accentStrong);
+
+  final String label;
+  final Color accent;
+  final Color accentStrong;
+
+  static AppThemeColorPreference fromKey(String? key) {
+    return values.firstWhere(
+      (color) => color.name == key,
+      orElse: () => AppThemeColorPreference.lightningBlue,
+    );
+  }
+}
+
 @immutable
 class AurexPalette extends ThemeExtension<AurexPalette> {
   const AurexPalette({
@@ -85,6 +105,21 @@ class AurexPalette extends ThemeExtension<AurexPalette> {
     end: Alignment.bottomRight,
     colors: [tileTop, tileBottom],
   );
+
+  AurexPalette withThemeColor(AppThemeColorPreference preference) {
+    final darkPalette = background.computeLuminance() < 0.2;
+    final accent = preference.accent;
+    final accentStrong = preference.accentStrong;
+
+    return copyWith(
+      accent: accent,
+      accentStrong: accentStrong,
+      accentSoft: accent.withAlpha(darkPalette ? 0x33 : 0x24),
+      glow: accent.withAlpha(darkPalette ? 0x45 : 0x2E),
+      ambientTopGlow: accent.withAlpha(darkPalette ? 0x22 : 0x20),
+      ambientRightGlow: accentStrong.withAlpha(0x1F),
+    );
+  }
 
   @override
   AurexPalette copyWith({

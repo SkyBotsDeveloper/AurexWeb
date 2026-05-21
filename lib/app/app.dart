@@ -33,8 +33,8 @@ class AurexApp extends ConsumerWidget {
           debugShowCheckedModeBanner: false,
           scrollBehavior: const AurexScrollBehavior(),
           themeMode: settings.themePreference.themeMode,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
+          theme: AppTheme.lightTheme(settings.themeColorPreference),
+          darkTheme: AppTheme.darkTheme(settings.themeColorPreference),
           routerConfig: router,
         );
       },
