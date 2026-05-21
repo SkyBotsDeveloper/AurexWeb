@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../data/auth_repository.dart';
@@ -48,9 +49,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       }
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString())),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
       }
     } finally {
       if (mounted) {
@@ -60,9 +61,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String get _email => _emailController.text.trim();
@@ -80,20 +81,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       return;
     }
 
-    await _run(
-      (repo) {
-        if (_isSignUp) {
-          return repo.signUpWithEmail(
-            email: _email,
-            password: _passwordController.text,
-          );
-        }
-        return repo.signInWithEmail(
+    await _run((repo) {
+      if (_isSignUp) {
+        return repo.signUpWithEmail(
           email: _email,
           password: _passwordController.text,
         );
-      },
-    );
+      }
+      return repo.signInWithEmail(
+        email: _email,
+        password: _passwordController.text,
+      );
+    });
   }
 
   Future<void> _sendPasswordReset() async {
@@ -143,7 +142,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 36, 20, 24),
         children: [
-          Text('Welcome to Aurex', style: Theme.of(context).textTheme.headlineLarge),
+          Text(
+            'Welcome to Aurex',
+            style: Theme.of(context).textTheme.headlineLarge,
+          ),
           const SizedBox(height: 8),
           Text(
             'Sign in with email or continue with Google to sync your profile and library.',
@@ -195,10 +197,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   onPressed: _loading
                       ? null
                       : () => _run(
-                            (repo) => repo.signInWithGoogle(),
-                            successMessage:
-                                'Continue in the browser to finish Google sign-in.',
-                          ),
+                          (repo) => repo.signInWithGoogle(),
+                          successMessage:
+                              'Continue in the browser to finish Google sign-in.',
+                        ),
                   icon: const Icon(Icons.account_circle_rounded),
                   label: const Text('Continue with Google'),
                 ),

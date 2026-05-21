@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/config/app_providers.dart';
 import '../../../core/logging/app_logger.dart';
 import '../../../core/storage/file_ops.dart';
+import '../../../core/utils/error_messages.dart';
 import '../../library/data/library_repository.dart';
 import '../../music/domain/music_models.dart';
 import '../../rooms/data/room_session_controller.dart';
@@ -256,9 +257,7 @@ class PlaybackController {
     return _player.playing;
   }
 
-  Future<bool> _waitForPlaybackStart({
-    required int requestVersion,
-  }) async {
+  Future<bool> _waitForPlaybackStart({required int requestVersion}) async {
     if (_player.playing) {
       return true;
     }
@@ -281,7 +280,12 @@ class PlaybackController {
     final playFuture = _player.play();
     unawaited(
       playFuture.catchError((Object error, StackTrace stackTrace) {
-        notifier.value = notifier.value.copyWith(error: error.toString());
+        notifier.value = notifier.value.copyWith(
+          error: friendlyErrorMessage(
+            error,
+            fallback: 'Playback could not be started right now.',
+          ),
+        );
         AppLogger.instance.e(
           'Playback play request failed',
           error: error,
@@ -450,7 +454,9 @@ class PlaybackController {
           'Playback engine error: ${error.message}',
           error: error,
         );
-        notifier.value = notifier.value.copyWith(error: error.message);
+        notifier.value = notifier.value.copyWith(
+          error: 'Playback stopped unexpectedly. Please retry this track.',
+        );
       }),
     );
   }

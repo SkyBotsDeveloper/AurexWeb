@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../../player/data/playback_controller.dart';
 import '../../player/data/playback_models.dart';
@@ -233,7 +234,8 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
                             padding: EdgeInsets.all(16),
                             child: CircularProgressIndicator(),
                           ),
-                          error: (error, _) => Text(error.toString()),
+                          error: (error, _) =>
+                              Text(friendlyErrorMessage(error)),
                         ),
                       ],
                     ),
@@ -277,7 +279,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
             error: (error, _) => StateScaffold(
               icon: Icons.error_outline_rounded,
               title: 'Room members error',
-              message: error.toString(),
+              message: friendlyErrorMessage(error),
             ),
           );
         },
@@ -285,7 +287,7 @@ class _RoomDetailScreenState extends ConsumerState<RoomDetailScreen> {
         error: (error, _) => StateScaffold(
           icon: Icons.error_outline_rounded,
           title: 'Room error',
-          message: error.toString(),
+          message: friendlyErrorMessage(error),
         ),
       ),
     );

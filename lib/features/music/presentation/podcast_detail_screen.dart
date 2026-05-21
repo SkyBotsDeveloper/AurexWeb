@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/error_messages.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/network_artwork.dart';
@@ -38,7 +39,7 @@ class PodcastDetailScreen extends ConsumerWidget {
             return StateScaffold(
               icon: Icons.error_outline_rounded,
               title: 'Unable to open this show',
-              message: snapshot.error.toString(),
+              message: friendlyErrorMessage(snapshot.error),
             );
           }
 
@@ -314,7 +315,7 @@ Future<void> _setPodcastQueue(
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
     }
   }
 }

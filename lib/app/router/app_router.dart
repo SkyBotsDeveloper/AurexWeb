@@ -383,20 +383,42 @@ class _DesktopSidePanel extends StatelessWidget {
                 'Quick Access',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => context.go('/search'),
+                icon: const Icon(Icons.search_rounded),
+                label: const Text('Search'),
+              ),
               const SizedBox(height: 10),
-              Text(
-                'Wide web layout keeps navigation fixed, content open, and playback close without eating your scroll space.',
-                style: Theme.of(context).textTheme.bodyMedium,
+              OutlinedButton.icon(
+                onPressed: () => context.go('/library'),
+                icon: const Icon(Icons.library_music_rounded),
+                label: const Text('Library'),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => context.go('/room'),
+                icon: const Icon(Icons.groups_rounded),
+                label: const Text('Rooms'),
               ),
               const SizedBox(height: 16),
-              FilledButton.tonal(
-                onPressed: () => context.push('/settings'),
-                child: const Text('Settings'),
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton(
-                onPressed: () => context.push('/about'),
-                child: const Text('About'),
+              Divider(color: palette.border.withAlpha(120), height: 1),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  IconButton.filledTonal(
+                    tooltip: 'Settings',
+                    onPressed: () => context.push('/settings'),
+                    icon: const Icon(Icons.tune_rounded),
+                  ),
+                  IconButton.filledTonal(
+                    tooltip: 'About',
+                    onPressed: () => context.push('/about'),
+                    icon: const Icon(Icons.info_outline_rounded),
+                  ),
+                ],
               ),
             ],
           ),

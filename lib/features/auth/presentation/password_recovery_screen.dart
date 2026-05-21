@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../data/auth_repository.dart';
@@ -41,9 +42,9 @@ class _PasswordRecoveryScreenState
     }
 
     if (password != confirm) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Passwords do not match.')));
       return;
     }
 
@@ -61,9 +62,9 @@ class _PasswordRecoveryScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
     } finally {
       if (mounted) {
         setState(() => _saving = false);
@@ -143,7 +144,7 @@ class _PasswordRecoveryScreenState
         error: (error, _) => StateScaffold(
           icon: Icons.error_outline_rounded,
           title: 'Reset error',
-          message: error.toString(),
+          message: friendlyErrorMessage(error),
         ),
       ),
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/error_messages.dart';
 import '../../library/data/library_models.dart';
 import '../../library/data/library_repository.dart';
 import '../../library/presentation/add_to_playlist_sheet.dart';
@@ -14,8 +15,8 @@ final likedTrackIdsStreamProvider = StreamProvider.autoDispose<Set<String>>(
 
 final downloadedTracksStreamProvider =
     StreamProvider.autoDispose<List<DownloadRecord>>(
-  (ref) => ref.watch(libraryRepositoryProvider).watchDownloads(),
-);
+      (ref) => ref.watch(libraryRepositoryProvider).watchDownloads(),
+    );
 
 class TrackSupportActions extends ConsumerWidget {
   const TrackSupportActions({super.key, required this.track});
@@ -27,10 +28,8 @@ class TrackSupportActions extends ConsumerWidget {
     final likedIds = ref.watch(likedTrackIdsStreamProvider);
     final downloads = ref.watch(downloadedTracksStreamProvider);
     final isLiked = likedIds.asData?.value.contains(track.id) ?? false;
-    final isDownloaded =
-        (downloads.asData?.value ?? const <DownloadRecord>[]).any(
-      (item) => item.track.id == track.id,
-    );
+    final isDownloaded = (downloads.asData?.value ?? const <DownloadRecord>[])
+        .any((item) => item.track.id == track.id);
     final manager = ref.watch(downloadManagerProvider);
 
     return ValueListenableBuilder<Map<String, DownloadTaskProgress>>(
@@ -42,7 +41,8 @@ class TrackSupportActions extends ConsumerWidget {
           runSpacing: 12,
           children: [
             OutlinedButton.icon(
-              onPressed: () => ref.read(libraryRepositoryProvider).toggleLike(track),
+              onPressed: () =>
+                  ref.read(libraryRepositoryProvider).toggleLike(track),
               icon: Icon(
                 isLiked
                     ? Icons.favorite_rounded
@@ -82,9 +82,9 @@ class TrackSupportActions extends ConsumerWidget {
       if (progress?.isRunning ?? false) {
         manager.cancel(track.id);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Download cancelled')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Download cancelled')));
         }
         return;
       }
@@ -92,24 +92,24 @@ class TrackSupportActions extends ConsumerWidget {
       if (isDownloaded) {
         await manager.deleteDownload(track.id);
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Download removed')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Download removed')));
         }
         return;
       }
 
       await manager.downloadTrack(track);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Download complete')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Download complete')));
       }
     } catch (error) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString())),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
       }
     }
   }

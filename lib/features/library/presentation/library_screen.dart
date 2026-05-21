@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/screen_intro_panel.dart';
@@ -616,7 +617,7 @@ class _TrackList extends ConsumerWidget {
       error: (error, _) => StateScaffold(
         icon: Icons.error_outline_rounded,
         title: 'Library error',
-        message: error.toString(),
+        message: friendlyErrorMessage(error),
       ),
     );
   }
@@ -673,7 +674,7 @@ class _DownloadList extends ConsumerWidget {
       error: (error, _) => StateScaffold(
         icon: Icons.error_outline_rounded,
         title: 'Downloads error',
-        message: error.toString(),
+        message: friendlyErrorMessage(error),
       ),
     );
   }
@@ -753,7 +754,7 @@ class _PlaylistList extends StatelessWidget {
       error: (error, _) => StateScaffold(
         icon: Icons.error_outline_rounded,
         title: 'Playlists error',
-        message: error.toString(),
+        message: friendlyErrorMessage(error),
       ),
     );
   }

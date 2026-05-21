@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/error_messages.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/network_artwork.dart';
@@ -53,7 +54,7 @@ class CollectionDetailScreen extends ConsumerWidget {
             return StateScaffold(
               icon: Icons.error_outline_rounded,
               title: 'Unable to load details',
-              message: snapshot.error.toString(),
+              message: friendlyErrorMessage(snapshot.error),
             );
           }
 

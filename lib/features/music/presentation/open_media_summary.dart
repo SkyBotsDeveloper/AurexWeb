@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/error_messages.dart';
 import '../../player/data/playback_controller.dart';
 import '../../rooms/data/room_session_controller.dart';
 import '../data/music_repository.dart';
@@ -74,7 +75,7 @@ Future<void> openMediaSummary(
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(error.toString())));
+      ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
     }
   }
 }

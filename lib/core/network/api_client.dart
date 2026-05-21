@@ -27,11 +27,13 @@ final apiClientProvider = Provider<Dio>((ref) {
         handler.next(options);
       },
       onError: (error, handler) {
-        logger.e(
-          'HTTP ${error.requestOptions.method} ${error.requestOptions.uri}',
-          error: error.message,
-          stackTrace: error.stackTrace,
-        );
+        if (kDebugMode) {
+          logger.e(
+            'HTTP ${error.requestOptions.method} ${error.requestOptions.uri}',
+            error: error.message,
+            stackTrace: error.stackTrace,
+          );
+        }
         handler.next(error);
       },
     ),

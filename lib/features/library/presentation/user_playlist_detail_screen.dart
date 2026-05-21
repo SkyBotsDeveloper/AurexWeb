@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:collection/collection.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/error_messages.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/network_artwork.dart';
@@ -44,7 +45,7 @@ class UserPlaylistDetailScreen extends ConsumerWidget {
         error: (error, _) => StateScaffold(
           icon: Icons.error_outline_rounded,
           title: 'Unable to open playlist',
-          message: error.toString(),
+          message: friendlyErrorMessage(error),
         ),
         data: (playlist) {
           if (playlist == null) {

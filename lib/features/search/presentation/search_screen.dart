@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/artwork_card.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/network_artwork.dart';
@@ -212,7 +213,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   return StateScaffold(
                     icon: Icons.error_outline_rounded,
                     title: 'Search failed',
-                    message: snapshot.error.toString(),
+                    message: friendlyErrorMessage(snapshot.error),
                   );
                 }
                 final result = snapshot.data;

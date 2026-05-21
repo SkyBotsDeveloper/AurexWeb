@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/artwork_card.dart';
 import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/section_header.dart';
@@ -32,7 +33,7 @@ class ArtistDetailScreen extends ConsumerWidget {
             return StateScaffold(
               icon: Icons.error_outline_rounded,
               title: 'Unable to load artist',
-              message: snapshot.error.toString(),
+              message: friendlyErrorMessage(snapshot.error),
             );
           }
           final artist = snapshot.data!;

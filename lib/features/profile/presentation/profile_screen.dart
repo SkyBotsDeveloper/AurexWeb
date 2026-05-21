@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../../auth/data/auth_repository.dart';
@@ -56,7 +57,7 @@ class ProfileScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'User ID: ${user.id}',
+                      'Account active',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                   ],
@@ -91,7 +92,7 @@ class ProfileScreen extends ConsumerWidget {
         error: (error, _) => StateScaffold(
           icon: Icons.error_outline_rounded,
           title: 'Profile error',
-          message: error.toString(),
+          message: friendlyErrorMessage(error),
         ),
       ),
     );

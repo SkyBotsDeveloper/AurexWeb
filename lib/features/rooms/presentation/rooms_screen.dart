@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/screen_intro_panel.dart';
 import '../../../core/widgets/state_scaffold.dart';
@@ -222,7 +223,7 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
         error: (error, _) => StateScaffold(
           icon: Icons.error_outline_rounded,
           title: 'Room auth error',
-          message: error.toString(),
+          message: friendlyErrorMessage(error),
         ),
       ),
     );
@@ -236,7 +237,7 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(error.toString())));
+        ).showSnackBar(SnackBar(content: Text(friendlyErrorMessage(error))));
       }
     } finally {
       if (mounted) {
