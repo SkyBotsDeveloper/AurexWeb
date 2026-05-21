@@ -33,12 +33,19 @@ class AurexScrollBehavior extends MaterialScrollBehavior {
       return child;
     }
 
+    final isHorizontal =
+        details.direction == AxisDirection.left ||
+        details.direction == AxisDirection.right;
+    if (isHorizontal) {
+      return child;
+    }
+
     return Scrollbar(
       controller: details.controller,
       thumbVisibility: true,
-      trackVisibility: true,
+      trackVisibility: false,
       interactive: true,
-      thickness: width < 720 ? 16 : 13,
+      thickness: width < 720 ? 4.5 : 5.5,
       radius: const Radius.circular(999),
       child: child,
     );

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/rooms/data/room_session_controller.dart';
+import '../../features/settings/data/settings_repository.dart';
 import '../theme/app_colors.dart';
 import 'glass_panel.dart';
 
@@ -30,6 +31,7 @@ class AppNavigationRail extends ConsumerWidget {
     final hasActiveRoom = ref
         .watch(roomSessionControllerProvider)
         .hasActiveRoom;
+    final settings = ref.watch(settingsRepositoryProvider);
 
     return SizedBox(
       width: 116,
@@ -47,9 +49,16 @@ class AppNavigationRail extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(18),
                   ),
                   padding: const EdgeInsets.all(9),
-                  child: Image.asset(
-                    'assets/branding/aurex_mark.png',
-                    fit: BoxFit.contain,
+                  child: ValueListenableBuilder<AppSettings>(
+                    valueListenable: settings.notifier,
+                    builder: (context, current, child) {
+                      return Image.asset(
+                        'assets/branding/aurex_mark.png',
+                        fit: BoxFit.contain,
+                        color: current.logoColorPreference.color,
+                        colorBlendMode: BlendMode.hue,
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(height: 12),

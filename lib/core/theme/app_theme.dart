@@ -182,11 +182,11 @@ class AppTheme {
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(color: palette.accent),
       scrollbarTheme: ScrollbarThemeData(
-        thumbColor: WidgetStatePropertyAll(palette.accent.withAlpha(190)),
-        trackColor: WidgetStatePropertyAll(palette.surfaceInset.withAlpha(120)),
+        thumbColor: WidgetStatePropertyAll(palette.accent.withAlpha(170)),
+        trackColor: const WidgetStatePropertyAll(Colors.transparent),
         trackBorderColor: WidgetStatePropertyAll(Colors.transparent),
         radius: const Radius.circular(999),
-        thickness: const WidgetStatePropertyAll(8),
+        thickness: const WidgetStatePropertyAll(5.5),
         thumbVisibility: const WidgetStatePropertyAll(false),
       ),
       switchTheme: SwitchThemeData(

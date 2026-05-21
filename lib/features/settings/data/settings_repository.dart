@@ -26,9 +26,30 @@ enum AppThemePreference {
   String get label => this == AppThemePreference.light ? 'Light' : 'Dark';
 }
 
+enum AppLogoColorPreference {
+  lightningBlue(Color(0xFF38BDF8), 'Lightning Blue'),
+  aurexRose(Color(0xFFFF4D8D), 'Aurex Rose'),
+  ultraviolet(Color(0xFFA78BFA), 'Ultraviolet'),
+  solarAmber(Color(0xFFF59E0B), 'Solar Amber'),
+  arcticWhite(Color(0xFFEFF6FF), 'Arctic White');
+
+  const AppLogoColorPreference(this.color, this.label);
+
+  final Color color;
+  final String label;
+
+  static AppLogoColorPreference fromKey(String? key) {
+    return values.firstWhere(
+      (color) => color.name == key,
+      orElse: () => AppLogoColorPreference.lightningBlue,
+    );
+  }
+}
+
 class AppSettings {
   const AppSettings({
     required this.themePreference,
+    required this.logoColorPreference,
     required this.streamingQuality,
     required this.downloadQuality,
     required this.autoQuality,
@@ -37,6 +58,7 @@ class AppSettings {
   });
 
   final AppThemePreference themePreference;
+  final AppLogoColorPreference logoColorPreference;
   final AudioQuality streamingQuality;
   final AudioQuality downloadQuality;
   final bool autoQuality;
@@ -45,6 +67,7 @@ class AppSettings {
 
   AppSettings copyWith({
     AppThemePreference? themePreference,
+    AppLogoColorPreference? logoColorPreference,
     AudioQuality? streamingQuality,
     AudioQuality? downloadQuality,
     bool? autoQuality,
@@ -53,6 +76,7 @@ class AppSettings {
   }) {
     return AppSettings(
       themePreference: themePreference ?? this.themePreference,
+      logoColorPreference: logoColorPreference ?? this.logoColorPreference,
       streamingQuality: streamingQuality ?? this.streamingQuality,
       downloadQuality: downloadQuality ?? this.downloadQuality,
       autoQuality: autoQuality ?? this.autoQuality,
@@ -68,6 +92,9 @@ class SettingsRepository {
         AppSettings(
           themePreference: AppThemePreference.fromKey(
             _prefs.getString(_themePreferenceKey),
+          ),
+          logoColorPreference: AppLogoColorPreference.fromKey(
+            _prefs.getString(_logoColorPreferenceKey),
           ),
           streamingQuality: AudioQuality.fromKey(
             _prefs.getString(_streamingQualityKey),
@@ -85,6 +112,7 @@ class SettingsRepository {
   final ValueNotifier<AppSettings> notifier;
 
   static const _themePreferenceKey = 'settings.theme_preference';
+  static const _logoColorPreferenceKey = 'settings.logo_color_preference';
   static const _streamingQualityKey = 'settings.streaming_quality';
   static const _downloadQualityKey = 'settings.download_quality';
   static const _autoQualityKey = 'settings.auto_quality';
@@ -96,6 +124,13 @@ class SettingsRepository {
   Future<void> updateThemePreference(AppThemePreference preference) async {
     await _prefs.setString(_themePreferenceKey, preference.name);
     notifier.value = notifier.value.copyWith(themePreference: preference);
+  }
+
+  Future<void> updateLogoColorPreference(
+    AppLogoColorPreference preference,
+  ) async {
+    await _prefs.setString(_logoColorPreferenceKey, preference.name);
+    notifier.value = notifier.value.copyWith(logoColorPreference: preference);
   }
 
   Future<void> updateStreamingQuality(AudioQuality quality) async {

@@ -60,6 +60,30 @@ class SettingsScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 20),
                     Text(
+                      'Logo Color',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: AppLogoColorPreference.values.map((preference) {
+                        final selected =
+                            current.logoColorPreference == preference;
+                        return ChoiceChip(
+                          avatar: _LogoColorSwatch(
+                            color: preference.color,
+                            selected: selected,
+                          ),
+                          label: Text(preference.label),
+                          selected: selected,
+                          onSelected: (_) =>
+                              settings.updateLogoColorPreference(preference),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
                       'Streaming Quality',
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
@@ -174,6 +198,31 @@ class SettingsScreen extends ConsumerWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _LogoColorSwatch extends StatelessWidget {
+  const _LogoColorSwatch({required this.color, required this.selected});
+
+  final Color color;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppColors.of(context);
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+        border: Border.all(
+          color: selected ? palette.textPrimary : palette.border,
+          width: selected ? 2 : 1,
+        ),
+        boxShadow: [BoxShadow(color: color.withAlpha(90), blurRadius: 10)],
       ),
     );
   }
