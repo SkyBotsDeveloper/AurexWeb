@@ -9,6 +9,7 @@ import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/screen_intro_panel.dart';
 import '../../../core/widgets/section_header.dart';
+import '../../../core/widgets/skeleton_loader.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../../music/data/music_repository.dart';
 import '../../music/domain/music_models.dart';
@@ -104,10 +105,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               future: _trendingFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
+                  return const MediaRailSkeleton();
                 }
 
                 final sections = snapshot.data ?? const <HomeSection>[];
@@ -208,10 +206,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               future: _searchFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Padding(
-                    padding: EdgeInsets.all(24),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
+                  return const ResultsListSkeleton(groupCount: 2);
                 }
                 if (snapshot.hasError) {
                   return StateScaffold(

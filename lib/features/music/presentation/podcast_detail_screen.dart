@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/network_artwork.dart';
+import '../../../core/widgets/skeleton_loader.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../../player/data/playback_controller.dart';
 import '../../rooms/data/room_session_controller.dart';
@@ -31,7 +32,7 @@ class PodcastDetailScreen extends ConsumerWidget {
         future: future,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const MediaDetailSkeleton(rowCount: 6);
           }
           if (snapshot.hasError || !snapshot.hasData) {
             return StateScaffold(

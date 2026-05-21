@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/widgets/artwork_card.dart';
 import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/section_header.dart';
+import '../../../core/widgets/skeleton_loader.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../../player/data/playback_controller.dart';
 import '../../rooms/data/room_session_controller.dart';
@@ -25,7 +26,7 @@ class ArtistDetailScreen extends ConsumerWidget {
         future: ref.read(musicRepositoryProvider).fetchArtist(id),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const MediaDetailSkeleton(rowCount: 5);
           }
           if (snapshot.hasError || !snapshot.hasData) {
             return StateScaffold(
