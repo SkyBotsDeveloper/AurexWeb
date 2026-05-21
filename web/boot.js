@@ -1,5 +1,66 @@
 var aurexBootDone = false;
 
+// Flutter parses navigator.languages before Dart starts; keep invalid browser
+// locale values from blocking the engine in strict browsers.
+(function normalizeNavigatorLanguages() {
+  var fallbackLanguage = 'en-US';
+  var nav = window.navigator;
+
+  function isValidLanguageTag(value) {
+    if (typeof value !== 'string') {
+      return false;
+    }
+    var tag = value.trim();
+    if (!tag || tag === 'undefined' || tag === 'null') {
+      return false;
+    }
+    try {
+      new Intl.Locale(tag);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  var browserLanguages = [];
+  if (nav.languages && typeof nav.languages.length === 'number') {
+    browserLanguages = Array.prototype.slice.call(nav.languages);
+  }
+
+  var cleanLanguages = browserLanguages.filter(isValidLanguageTag);
+  if (!cleanLanguages.length && isValidLanguageTag(nav.language)) {
+    cleanLanguages = [nav.language.trim()];
+  }
+  if (!cleanLanguages.length) {
+    cleanLanguages = [fallbackLanguage];
+  }
+
+  var needsPatch =
+    cleanLanguages.length !== browserLanguages.length ||
+    cleanLanguages[0] !== nav.language;
+
+  if (!needsPatch) {
+    return;
+  }
+
+  try {
+    Object.defineProperty(nav, 'languages', {
+      configurable: true,
+      get: function () {
+        return cleanLanguages.slice();
+      },
+    });
+    Object.defineProperty(nav, 'language', {
+      configurable: true,
+      get: function () {
+        return cleanLanguages[0];
+      },
+    });
+  } catch (_) {
+    window.__aurexLanguages = cleanLanguages;
+  }
+})();
+
 function removeAurexBoot() {
   aurexBootDone = true;
   var boot = document.getElementById('boot');

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
+import 'package:intl/intl.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,6 +16,9 @@ import 'app.dart';
 
 Future<void> bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+  Intl.defaultLocale = _resolveIntlLocale(
+    WidgetsBinding.instance.platformDispatcher.locale,
+  );
 
   if (kIsWeb) {
     usePathUrlStrategy();
@@ -68,4 +72,20 @@ Future<void> bootstrap() async {
       child: const AurexApp(),
     ),
   );
+}
+
+String _resolveIntlLocale(Locale locale) {
+  final languageCode = locale.languageCode.trim();
+  if (languageCode.isEmpty ||
+      languageCode.toLowerCase() == 'und' ||
+      languageCode.toLowerCase() == 'undefined') {
+    return 'en_US';
+  }
+
+  final countryCode = locale.countryCode?.trim();
+  if (countryCode == null || countryCode.isEmpty) {
+    return languageCode;
+  }
+
+  return '${languageCode}_$countryCode';
 }
