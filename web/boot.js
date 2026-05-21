@@ -30,7 +30,7 @@ function updateBootCopy(message, showReload) {
   button.style.minHeight = '44px';
   button.style.border = '0';
   button.style.borderRadius = '8px';
-  button.style.background = '#2DD4BF';
+  button.style.background = '#FF4D8D';
   button.style.color = '#05070A';
   button.style.font = '700 14px "Segoe UI", sans-serif';
   button.style.cursor = 'pointer';
