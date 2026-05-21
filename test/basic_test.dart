@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:aurex/core/widgets/network_artwork.dart';
 import 'package:aurex/core/utils/formatters.dart';
 import 'package:aurex/features/music/domain/music_models.dart';
 
@@ -12,6 +13,23 @@ void main() {
     expect(MusicItemType.parse('radio_station'), MusicItemType.radio);
     expect(MusicItemType.parse('channel'), MusicItemType.channel);
     expect(MusicItemType.parse('show'), MusicItemType.show);
+  });
+
+  test('known Saavn placeholder artwork is blocked before image loading', () {
+    expect(
+      isCorsProneArtworkUrl(
+        'https://www.jiosaavn.com/_i/3.0/artist-default-film.png',
+      ),
+      isTrue,
+    );
+    expect(
+      isCorsProneArtworkUrl('https://static.saavncdn.com/_i/share-image-2.png'),
+      isTrue,
+    );
+    expect(
+      isCorsProneArtworkUrl('https://c.saavncdn.com/123/album/500x500.jpg'),
+      isFalse,
+    );
   });
 
   test(

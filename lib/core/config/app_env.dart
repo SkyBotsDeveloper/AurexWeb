@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class AppEnv {
   AppEnv({
     required this.musicApiBaseUrl,
@@ -23,8 +25,10 @@ class AppEnv {
 
   static Future<AppEnv> load() async {
     return AppEnv(
-      musicApiBaseUrl: _clean(_musicApiBaseUrl) ?? _defaultMusicApiBaseUrl,
-      aurexApiBaseUrl: _clean(_aurexApiBaseUrl) ?? _defaultAurexApiBaseUrl,
+      musicApiBaseUrl:
+          _cleanApiBaseUrl(_musicApiBaseUrl) ?? _defaultMusicApiBaseUrl,
+      aurexApiBaseUrl:
+          _cleanApiBaseUrl(_aurexApiBaseUrl) ?? _defaultAurexApiBaseUrl,
       supabaseUrl: _clean(_supabaseUrl),
       supabaseAnonKey:
           _clean(_supabasePublishableKey) ?? _clean(_supabaseAnonKey),
@@ -33,16 +37,12 @@ class AppEnv {
     );
   }
 
-  static const _defaultMusicApiBaseUrl = 'https://elitejiosaavn-api.vercel.app';
-  static const _defaultAurexApiBaseUrl = 'https://aurex-api-two.vercel.app';
-  static const _musicApiBaseUrl = String.fromEnvironment(
-    'JIOSAAVN_BASE_URL',
-    defaultValue: _defaultMusicApiBaseUrl,
-  );
-  static const _aurexApiBaseUrl = String.fromEnvironment(
-    'AUREX_API_BASE_URL',
-    defaultValue: _defaultAurexApiBaseUrl,
-  );
+  static String get _defaultMusicApiBaseUrl =>
+      kIsWeb ? '/music-api' : 'https://elitejiosaavn-api.vercel.app';
+  static String get _defaultAurexApiBaseUrl =>
+      kIsWeb ? '/aurex-api' : 'https://aurex-api-two.vercel.app';
+  static const _musicApiBaseUrl = String.fromEnvironment('JIOSAAVN_BASE_URL');
+  static const _aurexApiBaseUrl = String.fromEnvironment('AUREX_API_BASE_URL');
   static const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const _supabasePublishableKey = String.fromEnvironment(
     'SUPABASE_PUBLISHABLE_KEY',
@@ -63,5 +63,16 @@ class AppEnv {
     }
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static String? _cleanApiBaseUrl(String? value) {
+    final cleaned = _clean(value);
+    if (cleaned == null) {
+      return null;
+    }
+    if (!kIsWeb && cleaned.startsWith('/')) {
+      return null;
+    }
+    return cleaned;
   }
 }

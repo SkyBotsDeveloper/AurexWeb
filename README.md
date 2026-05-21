@@ -2,8 +2,8 @@
 
 Aurex is a premium cross-platform Flutter music app with:
 
-- live music browsing powered by `https://elitejiosaavn-api.vercel.app`
-  with Aurex API fallback playback from `https://aurex-api-two.vercel.app`
+- live music browsing through same-origin `/music-api` with Aurex fallback
+  playback through `/aurex-api`
 - Supabase-backed authentication, profiles, realtime rooms, and chat
 - a premium audio player with lyrics, queue management, and offline downloads
 - Android-first delivery with web-ready architecture and optional Windows support
@@ -34,9 +34,15 @@ C:\Users\strad\develop\flutter\bin\flutter.bat build apk --release --dart-define
 C:\Users\strad\develop\flutter\bin\flutter.bat analyze
 ```
 
-For Vercel, set these as project environment variables instead of committing or
-shipping `.env`: `JIOSAAVN_BASE_URL`, `AUREX_API_BASE_URL`, `SUPABASE_URL`,
-`SUPABASE_PUBLISHABLE_KEY`, `AUTH_REDIRECT_SCHEME`, and `AUTH_REDIRECT_HOST`.
+For Vercel, the music, artwork, and Aurex API calls default to same-origin
+rewrites in `vercel.json`: `/music-api`, `/artwork-api`, and `/aurex-api`.
+Only set `JIOSAAVN_BASE_URL`, `AUREX_API_BASE_URL`, or
+`CLEAN_ARTWORK_API_BASE_URL` when a custom deployment needs different routes.
+For local Flutter web without Vercel rewrites or for mobile builds, set those
+API variables to reachable absolute API origins in your private `.env`.
+Keep Supabase values in project environment variables instead of committing or
+shipping `.env`: `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`,
+`AUTH_REDIRECT_SCHEME`, and `AUTH_REDIRECT_HOST`.
 
 ## Aurex API fallback
 

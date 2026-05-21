@@ -1,19 +1,17 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../utils/json_utils.dart';
 
 class CleanArtworkResolver {
   CleanArtworkResolver._();
 
-  static const _defaultBaseUrl = 'https://elite-music-api.vercel.app';
-  static const _baseUrl = String.fromEnvironment(
-    'CLEAN_ARTWORK_API_BASE_URL',
-    defaultValue: _defaultBaseUrl,
-  );
+  static const _webBaseUrl = '/artwork-api';
+  static const _baseUrl = String.fromEnvironment('CLEAN_ARTWORK_API_BASE_URL');
 
   static final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: _baseUrl,
+      baseUrl: _effectiveBaseUrl,
       connectTimeout: const Duration(seconds: 4),
       receiveTimeout: const Duration(seconds: 6),
       responseType: ResponseType.json,
@@ -21,6 +19,17 @@ class CleanArtworkResolver {
   );
 
   static final Map<String, Future<String?>> _cache = {};
+
+  static String get _effectiveBaseUrl {
+    final configured = _baseUrl.trim();
+    if (configured.isNotEmpty) {
+      if (!kIsWeb && configured.startsWith('/')) {
+        return 'https://elite-music-api.vercel.app';
+      }
+      return configured;
+    }
+    return kIsWeb ? _webBaseUrl : 'https://elite-music-api.vercel.app';
+  }
 
   static Future<String?> resolve({
     required String query,

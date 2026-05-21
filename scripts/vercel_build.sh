@@ -10,8 +10,9 @@ fi
 export PATH="$FLUTTER_ROOT/bin:$PATH"
 
 dart_defines=(
-  "--dart-define=JIOSAAVN_BASE_URL=${JIOSAAVN_BASE_URL:-https://elitejiosaavn-api.vercel.app}"
-  "--dart-define=AUREX_API_BASE_URL=${AUREX_API_BASE_URL:-https://aurex-api-two.vercel.app}"
+  "--dart-define=JIOSAAVN_BASE_URL=${JIOSAAVN_BASE_URL:-/music-api}"
+  "--dart-define=AUREX_API_BASE_URL=${AUREX_API_BASE_URL:-/aurex-api}"
+  "--dart-define=CLEAN_ARTWORK_API_BASE_URL=${CLEAN_ARTWORK_API_BASE_URL:-/artwork-api}"
   "--dart-define=SUPABASE_URL=${SUPABASE_URL:-}"
   "--dart-define=SUPABASE_PUBLISHABLE_KEY=${SUPABASE_PUBLISHABLE_KEY:-${SUPABASE_ANON_KEY:-}}"
   "--dart-define=AUTH_REDIRECT_SCHEME=${AUTH_REDIRECT_SCHEME:-aurex}"

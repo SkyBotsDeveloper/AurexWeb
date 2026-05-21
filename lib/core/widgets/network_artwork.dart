@@ -26,13 +26,17 @@ class NetworkArtwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = imageUrl?.trim();
-    if (url == null || url.isEmpty) {
-      return _ArtworkFallback(icon: fallbackIcon, iconSize: iconSize);
-    }
-
+    final rawUrl = imageUrl?.trim();
+    final shouldBlockRawUrl = isCorsProneArtworkUrl(rawUrl);
+    final url = shouldBlockRawUrl ? null : rawUrl;
     final query = cleanArtworkQuery?.trim();
-    if (_shouldResolveCleanArtwork(url) && query != null && query.isNotEmpty) {
+    final canResolveCleanArtwork =
+        query != null &&
+        query.isNotEmpty &&
+        (shouldBlockRawUrl ||
+            (url != null && url.isNotEmpty && _shouldResolveCleanArtwork(url)));
+
+    if (canResolveCleanArtwork) {
       return FutureBuilder<String?>(
         future: CleanArtworkResolver.resolve(
           query: query,
@@ -40,14 +44,32 @@ class NetworkArtwork extends StatelessWidget {
           subtitle: cleanArtworkSubtitle,
         ),
         builder: (context, snapshot) {
+          final resolvedUrl = snapshot.data?.trim();
+          if (resolvedUrl != null &&
+              resolvedUrl.isNotEmpty &&
+              !isCorsProneArtworkUrl(resolvedUrl)) {
+            return _ArtworkImage(
+              imageUrl: resolvedUrl,
+              fit: fit,
+              fallbackIcon: fallbackIcon,
+              iconSize: iconSize,
+            );
+          }
+          if (url == null || url.isEmpty) {
+            return _ArtworkFallback(icon: fallbackIcon, iconSize: iconSize);
+          }
           return _ArtworkImage(
-            imageUrl: snapshot.data ?? url,
+            imageUrl: url,
             fit: fit,
             fallbackIcon: fallbackIcon,
             iconSize: iconSize,
           );
         },
       );
+    }
+
+    if (url == null || url.isEmpty) {
+      return _ArtworkFallback(icon: fallbackIcon, iconSize: iconSize);
     }
 
     return _ArtworkImage(
@@ -60,8 +82,31 @@ class NetworkArtwork extends StatelessWidget {
 
   bool _shouldResolveCleanArtwork(String url) {
     final host = Uri.tryParse(url)?.host.toLowerCase() ?? '';
-    return host.contains('saavncdn.com');
+    return host.contains('saavncdn.com') || host.contains('jiosaavn.com');
   }
+}
+
+bool isCorsProneArtworkUrl(String? rawUrl) {
+  final url = rawUrl?.trim();
+  if (url == null || url.isEmpty) {
+    return false;
+  }
+
+  final uri = Uri.tryParse(url);
+  final host = uri?.host.toLowerCase() ?? '';
+  final path = uri?.path.toLowerCase() ?? '';
+  final isSaavnHost =
+      host == 'jiosaavn.com' ||
+      host.endsWith('.jiosaavn.com') ||
+      host == 'saavncdn.com' ||
+      host.endsWith('.saavncdn.com');
+  if (!isSaavnHost) {
+    return false;
+  }
+
+  return path.contains('artist-default') ||
+      path.contains('share-image') ||
+      path.contains('/_i/');
 }
 
 class _ArtworkImage extends StatelessWidget {

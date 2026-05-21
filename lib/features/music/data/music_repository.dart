@@ -278,6 +278,15 @@ class MusicRepository {
   }
 
   Future<LyricsBundle> fetchBestLyrics(Track track) async {
+    if (track.isAurexSource) {
+      return const LyricsBundle(sourceLabel: 'Aurex Online');
+    }
+
+    if (!track.hasLyrics && (track.lyricsId?.trim().isEmpty ?? true)) {
+      final fallback = await _fetchFallbackLyrics(track);
+      return fallback ?? const LyricsBundle();
+    }
+
     final lyricsId = track.lyricsId ?? track.id;
 
     SyncedLyricsData? synced;

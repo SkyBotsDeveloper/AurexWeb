@@ -3,6 +3,18 @@
   "buildCommand": "bash scripts/vercel_build.sh",
   "outputDirectory": "build/web",
   "rewrites": [
+    {
+      "source": "/music-api/:path*",
+      "destination": "https://elitejiosaavn-api.vercel.app/:path*"
+    },
+    {
+      "source": "/aurex-api/:path*",
+      "destination": "https://aurex-api-two.vercel.app/:path*"
+    },
+    {
+      "source": "/artwork-api/:path*",
+      "destination": "https://elite-music-api.vercel.app/:path*"
+    },
     { "source": "/home", "destination": "/index.html" },
     { "source": "/search", "destination": "/index.html" },
     { "source": "/room", "destination": "/index.html" },
