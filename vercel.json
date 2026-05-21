@@ -9,7 +9,7 @@
     },
     {
       "source": "/aurex-api/:path*",
-      "destination": "https://aurex-api-two.vercel.app/:path*"
+      "destination": "/api/aurex/:path*"
     },
     {
       "source": "/artwork-api/:path*",

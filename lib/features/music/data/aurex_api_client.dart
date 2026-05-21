@@ -32,6 +32,15 @@ class AurexApiClient {
   final Map<String, _AurexSearchCacheEntry> _searchCache = {};
 
   static const Duration _searchCacheTtl = Duration(minutes: 7);
+  static const Set<int> _retryableResolveStatusCodes = {
+    408,
+    425,
+    429,
+    500,
+    502,
+    503,
+    504,
+  };
 
   Future<List<AurexSong>> searchAurexSongs(
     String query, {
@@ -109,7 +118,7 @@ class AurexApiClient {
     }
 
     try {
-      final response = await _dio.get<Map<String, dynamic>>(
+      final response = await _getResolveWithRetry(
         '/api/resolve',
         queryParameters: {'videoId': cleanVideoId, 'format': format},
         cancelToken: cancelToken,
@@ -142,6 +151,45 @@ class AurexApiClient {
         'Could not load this song. Please try another result.',
       );
     }
+  }
+
+  Future<Response<Map<String, dynamic>>> _getResolveWithRetry(
+    String path, {
+    required Map<String, dynamic> queryParameters,
+    CancelToken? cancelToken,
+  }) async {
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await _dio.get<Map<String, dynamic>>(
+          path,
+          queryParameters: queryParameters,
+          cancelToken: cancelToken,
+        );
+      } on DioException catch (error) {
+        if (CancelToken.isCancel(error) ||
+            attempt == maxAttempts ||
+            !_shouldRetryResolve(error)) {
+          rethrow;
+        }
+        await Future.delayed(Duration(milliseconds: 350 * attempt));
+      }
+    }
+    throw const AurexApiException(
+      'Could not load this song. Please try another result.',
+    );
+  }
+
+  bool _shouldRetryResolve(DioException error) {
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.type == DioExceptionType.connectionError) {
+      return true;
+    }
+    final statusCode = error.response?.statusCode;
+    return statusCode != null &&
+        _retryableResolveStatusCodes.contains(statusCode);
   }
 
   Future<Track> songFromAurex(
