@@ -17,20 +17,26 @@ class LibraryRepository {
 
   Database get _db => _database.db;
 
-  static final _likesStore =
-      stringMapStoreFactory.store('library_liked_tracks');
-  static final _historyStore =
-      stringMapStoreFactory.store('library_history_tracks');
-  static final _downloadsStore =
-      stringMapStoreFactory.store('library_downloads');
-  static final _playlistsStore =
-      stringMapStoreFactory.store('library_playlists');
+  static final _likesStore = stringMapStoreFactory.store(
+    'library_liked_tracks',
+  );
+  static final _historyStore = stringMapStoreFactory.store(
+    'library_history_tracks',
+  );
+  static final _downloadsStore = stringMapStoreFactory.store(
+    'library_downloads',
+  );
+  static final _playlistsStore = stringMapStoreFactory.store(
+    'library_playlists',
+  );
 
   Stream<List<Track>> watchLikedTracks() {
     final query = _likesStore.query(
       finder: Finder(sortOrders: [SortOrder('savedAt', false)]),
     );
-    return query.onSnapshots(_db).map(
+    return query
+        .onSnapshots(_db)
+        .map(
           (snapshots) => snapshots
               .map(
                 (snapshot) => Track.fromJson(
@@ -47,7 +53,8 @@ class LibraryRepository {
     );
   }
 
-  Future<bool> isLiked(String trackId) => _likesStore.record(trackId).exists(_db);
+  Future<bool> isLiked(String trackId) =>
+      _likesStore.record(trackId).exists(_db);
 
   Future<void> toggleLike(Track track) async {
     final record = _likesStore.record(track.id);
@@ -72,7 +79,9 @@ class LibraryRepository {
     final query = _historyStore.query(
       finder: Finder(sortOrders: [SortOrder('lastPlayedAt', false)]),
     );
-    return query.onSnapshots(_db).map(
+    return query
+        .onSnapshots(_db)
+        .map(
           (snapshots) => snapshots
               .map(
                 (snapshot) => Track.fromJson(
@@ -87,7 +96,9 @@ class LibraryRepository {
     final query = _downloadsStore.query(
       finder: Finder(sortOrders: [SortOrder('downloadedAt', false)]),
     );
-    return query.onSnapshots(_db).map(
+    return query
+        .onSnapshots(_db)
+        .map(
           (snapshots) => snapshots
               .map((snapshot) => DownloadRecord.fromJson(snapshot.value))
               .toList(),
@@ -120,10 +131,22 @@ class LibraryRepository {
     final query = _playlistsStore.query(
       finder: Finder(sortOrders: [SortOrder('updatedAt', false)]),
     );
-    return query.onSnapshots(_db).map(
+    return query
+        .onSnapshots(_db)
+        .map(
           (snapshots) => snapshots
               .map((snapshot) => UserPlaylist.fromJson(snapshot.value))
               .toList(),
+        );
+  }
+
+  Stream<UserPlaylist?> watchPlaylist(String playlistId) {
+    return _playlistsStore
+        .record(playlistId)
+        .onSnapshot(_db)
+        .map(
+          (snapshot) =>
+              snapshot == null ? null : UserPlaylist.fromJson(snapshot.value),
         );
   }
 
@@ -139,13 +162,12 @@ class LibraryRepository {
       return;
     }
     final playlist = UserPlaylist.fromJson(current);
-    final alreadyInPlaylist =
-        playlist.tracks.any((existingTrack) => existingTrack.id == track.id);
+    final alreadyInPlaylist = playlist.tracks.any(
+      (existingTrack) => existingTrack.id == track.id,
+    );
     final updated = playlist.copyWith(
       updatedAt: DateTime.now(),
-      tracks: alreadyInPlaylist
-          ? playlist.tracks
-          : [...playlist.tracks, track],
+      tracks: alreadyInPlaylist ? playlist.tracks : [...playlist.tracks, track],
     );
     await _playlistsStore.record(playlistId).put(_db, updated.toJson());
   }

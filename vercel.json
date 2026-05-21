@@ -8,6 +8,7 @@
     { "source": "/room", "destination": "/index.html" },
     { "source": "/room/:id", "destination": "/index.html" },
     { "source": "/library", "destination": "/index.html" },
+    { "source": "/library/playlist/:id", "destination": "/index.html" },
     { "source": "/profile", "destination": "/index.html" },
     { "source": "/auth", "destination": "/index.html" },
     { "source": "/auth/recovery", "destination": "/index.html" },

@@ -12,6 +12,7 @@ import '../../features/auth/presentation/auth_screen.dart';
 import '../../features/auth/presentation/password_recovery_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/library/presentation/library_screen.dart';
+import '../../features/library/presentation/user_playlist_detail_screen.dart';
 import '../../features/music/presentation/artist_detail_screen.dart';
 import '../../features/music/presentation/collection_detail_screen.dart';
 import '../../features/music/presentation/discovery_detail_screen.dart';
@@ -104,6 +105,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => CollectionDetailScreen(
           id: state.pathParameters['id']!,
           kind: CollectionKind.playlist,
+        ),
+      ),
+      GoRoute(
+        path: '/library/playlist/:id',
+        builder: (context, state) => UserPlaylistDetailScreen(
+          id: Uri.decodeComponent(state.pathParameters['id']!),
         ),
       ),
       GoRoute(
