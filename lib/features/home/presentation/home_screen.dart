@@ -69,9 +69,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final restartedFromBeginning =
         startPosition != null &&
         snapshot.position + const Duration(seconds: 1) < startPosition;
-    if (!_loadingRecentWasCurrent ||
-        snapshot.isBuffering ||
-        restartedFromBeginning) {
+    if (!_loadingRecentWasCurrent || restartedFromBeginning) {
       _clearRecentLoading();
     }
   }
@@ -108,7 +106,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _loadingRecentStartPosition = snapshot.position;
     });
     try {
-      await _playbackController.playTrack(track);
+      await _playbackController
+          .playTrack(track)
+          .timeout(const Duration(seconds: 15), onTimeout: () {});
     } catch (error) {
       if (!mounted) {
         return;
