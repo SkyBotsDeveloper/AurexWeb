@@ -26,11 +26,56 @@ final recentlyPlayedProvider = StreamProvider.autoDispose<List<Track>>(
   (ref) => ref.watch(libraryRepositoryProvider).watchHistory(),
 );
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  String? _loadingRecentTrackId;
+
+  Future<void> _playRecentTrack(
+    Track track,
+    RoomSessionState roomSession,
+  ) async {
+    if (_loadingRecentTrackId == track.id) {
+      return;
+    }
+    if (roomSession.controlsLocked) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(roomPlaybackLockedMessage(roomSession))),
+      );
+      return;
+    }
+
+    setState(() => _loadingRecentTrackId = track.id);
+    try {
+      await ref.read(playbackControllerProvider).playTrack(track);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            friendlyErrorMessage(
+              error,
+              fallback: 'Could not load this song. Please try again.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted && _loadingRecentTrackId == track.id) {
+        setState(() => _loadingRecentTrackId = null);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final palette = AppColors.of(context);
     final sections = ref.watch(homeSectionsProvider);
     final recentTracks = ref.watch(recentlyPlayedProvider);
@@ -143,24 +188,16 @@ class HomeScreen extends ConsumerWidget {
                             ),
                             child: _RecentTrackTile(
                               track: recentItems[index],
+                              isLoading:
+                                  _loadingRecentTrackId ==
+                                  recentItems[index].id,
                               lockedMessage: roomSession.controlsLocked
                                   ? roomPlaybackLockedMessage(roomSession)
                                   : null,
-                              onTap: () async {
-                                if (roomSession.controlsLocked) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        roomPlaybackLockedMessage(roomSession),
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                await ref
-                                    .read(playbackControllerProvider)
-                                    .playTrack(recentItems[index]);
-                              },
+                              onTap: () => _playRecentTrack(
+                                recentItems[index],
+                                roomSession,
+                              ),
                             ),
                           ),
                       ],
@@ -186,24 +223,11 @@ class HomeScreen extends ConsumerWidget {
                             final track = recentItems[index];
                             return _RecentTrackTile(
                               track: track,
+                              isLoading: _loadingRecentTrackId == track.id,
                               lockedMessage: roomSession.controlsLocked
                                   ? roomPlaybackLockedMessage(roomSession)
                                   : null,
-                              onTap: () async {
-                                if (roomSession.controlsLocked) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        roomPlaybackLockedMessage(roomSession),
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                await ref
-                                    .read(playbackControllerProvider)
-                                    .playTrack(track);
-                              },
+                              onTap: () => _playRecentTrack(track, roomSession),
                             );
                           },
                         );
@@ -466,11 +490,13 @@ class _RecentTrackTile extends StatelessWidget {
     required this.track,
     required this.onTap,
     required this.lockedMessage,
+    required this.isLoading,
   });
 
   final Track track;
   final VoidCallback onTap;
   final String? lockedMessage;
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -478,7 +504,7 @@ class _RecentTrackTile extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: isLoading ? null : onTap,
         borderRadius: BorderRadius.circular(22),
         child: Ink(
           decoration: BoxDecoration(
@@ -520,7 +546,9 @@ class _RecentTrackTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      lockedMessage ?? track.artistNames,
+                      isLoading && lockedMessage == null
+                          ? 'Loading song...'
+                          : lockedMessage ?? track.artistNames,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium,
@@ -538,13 +566,24 @@ class _RecentTrackTile extends StatelessWidget {
                       ? palette.accentSoft
                       : palette.surfaceInset,
                 ),
-                child: Icon(
-                  lockedMessage == null
-                      ? Icons.play_arrow_rounded
-                      : Icons.lock_outline_rounded,
-                  color: lockedMessage == null
-                      ? palette.accent
-                      : palette.textSecondary,
+                child: Center(
+                  child: isLoading && lockedMessage == null
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: palette.accent,
+                          ),
+                        )
+                      : Icon(
+                          lockedMessage == null
+                              ? Icons.play_arrow_rounded
+                              : Icons.lock_outline_rounded,
+                          color: lockedMessage == null
+                              ? palette.accent
+                              : palette.textSecondary,
+                        ),
                 ),
               ),
             ],
