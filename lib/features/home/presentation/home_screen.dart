@@ -35,6 +35,8 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _loadingRecentTrackId;
+  bool _loadingRecentWasCurrent = false;
+  Duration? _loadingRecentStartPosition;
   late final PlaybackController _playbackController;
 
   @override
@@ -56,9 +58,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
     final snapshot = _playbackController.snapshot;
-    if (snapshot.currentTrack?.id == loadingTrackId || snapshot.error != null) {
-      setState(() => _loadingRecentTrackId = null);
+    if (snapshot.error != null) {
+      _clearRecentLoading();
+      return;
     }
+    if (snapshot.currentTrack?.id != loadingTrackId) {
+      return;
+    }
+    final startPosition = _loadingRecentStartPosition;
+    final restartedFromBeginning =
+        startPosition != null &&
+        snapshot.position + const Duration(seconds: 1) < startPosition;
+    if (!_loadingRecentWasCurrent ||
+        snapshot.isBuffering ||
+        restartedFromBeginning) {
+      _clearRecentLoading();
+    }
+  }
+
+  void _clearRecentLoading() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _loadingRecentTrackId = null;
+      _loadingRecentWasCurrent = false;
+      _loadingRecentStartPosition = null;
+    });
   }
 
   Future<void> _playRecentTrack(
@@ -75,7 +101,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       return;
     }
 
-    setState(() => _loadingRecentTrackId = track.id);
+    final snapshot = _playbackController.snapshot;
+    setState(() {
+      _loadingRecentTrackId = track.id;
+      _loadingRecentWasCurrent = snapshot.currentTrack?.id == track.id;
+      _loadingRecentStartPosition = snapshot.position;
+    });
     try {
       await _playbackController.playTrack(track);
     } catch (error) {
@@ -94,7 +125,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     } finally {
       if (mounted && _loadingRecentTrackId == track.id) {
-        setState(() => _loadingRecentTrackId = null);
+        _clearRecentLoading();
       }
     }
   }
