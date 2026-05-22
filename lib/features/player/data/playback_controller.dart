@@ -56,6 +56,7 @@ class PlaybackController {
   int _queueRequestVersion = 0;
   DateTime? _pausedAt;
   bool _refreshingAurexPlayback = false;
+  final Map<String, DateTime> _aurexStreamResolvedAt = {};
 
   static const _queueKey = 'playback.queue';
   static const _indexKey = 'playback.index';
@@ -332,11 +333,25 @@ class PlaybackController {
     }
 
     final safeIndex = index.clamp(0, snapshot.queue.length - 1);
+    final targetTrack = snapshot.queue[safeIndex];
+    if (targetTrack.isAurexSource && _shouldRefreshAurexTrack(targetTrack)) {
+      await setQueue(
+        snapshot.queue,
+        initialIndex: safeIndex,
+        initialPosition: Duration.zero,
+        autoplay: true,
+        bypassRoomLock: true,
+        forceAurexRefreshIndex: safeIndex,
+      );
+      await _persistSession();
+      return;
+    }
+
     await _player.seek(Duration.zero, index: safeIndex);
     notifier.value = notifier.value.copyWith(
       currentIndex: safeIndex,
       position: Duration.zero,
-      duration: snapshot.queue[safeIndex].duration,
+      duration: targetTrack.duration,
       clearError: true,
     );
     _launchPlayRequest();
@@ -546,7 +561,7 @@ class PlaybackController {
     }
 
     final shouldRefresh =
-        force ||
+        _shouldRefreshAurexTrack(currentTrack, force: force) ||
         _player.processingState == ProcessingState.idle ||
         (_pausedAt != null &&
             DateTime.now().difference(_pausedAt!) >= _aurexResumeRefreshAfter);
@@ -588,6 +603,17 @@ class PlaybackController {
     }
   }
 
+  bool _shouldRefreshAurexTrack(Track track, {bool force = false}) {
+    if (force) {
+      return true;
+    }
+    final resolvedAt = _aurexStreamResolvedAt[track.id];
+    if (resolvedAt == null) {
+      return true;
+    }
+    return DateTime.now().difference(resolvedAt) >= _aurexResumeRefreshAfter;
+  }
+
   Future<Uri?> _resolveTrackUri(
     Track track, {
     bool forceAurexRefresh = false,
@@ -597,6 +623,7 @@ class PlaybackController {
           ? null
           : track.bestAudioUrl(AudioQuality.kbps160);
       if (inMemoryUrl != null) {
+        _aurexStreamResolvedAt[track.id] = DateTime.now();
         return Uri.tryParse(inMemoryUrl);
       }
       final uri = await _ref
@@ -605,6 +632,9 @@ class PlaybackController {
       AppLogger.instance.d(
         'Resolved Aurex fallback audio for ${track.id}: ${uri ?? 'none'}',
       );
+      if (uri != null) {
+        _aurexStreamResolvedAt[track.id] = DateTime.now();
+      }
       return uri;
     }
 
