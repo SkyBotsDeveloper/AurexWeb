@@ -563,7 +563,7 @@ class _MetricChip extends StatelessWidget {
   }
 }
 
-class _TrackList extends ConsumerWidget {
+class _TrackList extends ConsumerStatefulWidget {
   const _TrackList({
     required this.asyncTracks,
     required this.controlsLocked,
@@ -579,7 +579,114 @@ class _TrackList extends ConsumerWidget {
   final String emptyMessage;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TrackList> createState() => _TrackListState();
+}
+
+mixin _TrackPlaybackLoadingState<T extends ConsumerStatefulWidget>
+    on ConsumerState<T> {
+  String? _loadingTrackId;
+  bool _loadingTrackWasCurrent = false;
+  Duration? _loadingTrackStartPosition;
+  late final PlaybackController _playbackController;
+
+  @override
+  void initState() {
+    super.initState();
+    _playbackController = ref.read(playbackControllerProvider);
+    _playbackController.notifier.addListener(_handlePlaybackChanged);
+  }
+
+  @override
+  void dispose() {
+    _playbackController.notifier.removeListener(_handlePlaybackChanged);
+    super.dispose();
+  }
+
+  bool isLoadingTrack(Track track) => _loadingTrackId == track.id;
+
+  Future<void> playTrackWithLoading(Track track) async {
+    if (_loadingTrackId == track.id) {
+      return;
+    }
+
+    final snapshot = _playbackController.snapshot;
+    setState(() {
+      _loadingTrackId = track.id;
+      _loadingTrackWasCurrent = snapshot.currentTrack?.id == track.id;
+      _loadingTrackStartPosition = snapshot.position;
+    });
+
+    try {
+      await _playbackController
+          .playTrack(track)
+          .timeout(const Duration(seconds: 15), onTimeout: () {});
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            friendlyErrorMessage(
+              error,
+              fallback: 'Could not load this song. Please try again.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted && _loadingTrackId == track.id) {
+        _clearTrackLoading();
+      }
+    }
+  }
+
+  void _handlePlaybackChanged() {
+    final loadingTrackId = _loadingTrackId;
+    if (!mounted || loadingTrackId == null) {
+      return;
+    }
+
+    final snapshot = _playbackController.snapshot;
+    if (snapshot.error != null) {
+      _clearTrackLoading();
+      return;
+    }
+    if (snapshot.currentTrack?.id != loadingTrackId) {
+      return;
+    }
+
+    final startPosition = _loadingTrackStartPosition;
+    final restartedFromBeginning =
+        startPosition != null &&
+        snapshot.position + const Duration(seconds: 1) < startPosition;
+    if (!_loadingTrackWasCurrent || restartedFromBeginning) {
+      _clearTrackLoading();
+    }
+  }
+
+  void _clearTrackLoading() {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _loadingTrackId = null;
+      _loadingTrackWasCurrent = false;
+      _loadingTrackStartPosition = null;
+    });
+  }
+}
+
+class _TrackListState extends ConsumerState<_TrackList>
+    with _TrackPlaybackLoadingState<_TrackList> {
+  @override
+  Widget build(BuildContext context) {
+    final asyncTracks = widget.asyncTracks;
+    final controlsLocked = widget.controlsLocked;
+    final showLikeButton = widget.showLikeButton;
+    final emptyTitle = widget.emptyTitle;
+    final emptyMessage = widget.emptyMessage;
+
     return asyncTracks.when(
       data: (tracks) {
         if (tracks.isEmpty) {
@@ -597,19 +704,24 @@ class _TrackList extends ConsumerWidget {
           separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final track = tracks[index];
+            final isLoading = isLoadingTrack(track);
             return _TrackTileCard(
               track: track,
               controlsLocked: controlsLocked,
+              isLoading: isLoading,
               trailing: showLikeButton
                   ? IconButton(
-                      onPressed: () =>
-                          ref.read(libraryRepositoryProvider).toggleLike(track),
+                      onPressed: isLoading
+                          ? null
+                          : () => ref
+                                .read(libraryRepositoryProvider)
+                                .toggleLike(track),
                       icon: const Icon(Icons.favorite_rounded),
                     )
                   : null,
-              onTap: controlsLocked
+              onTap: controlsLocked || isLoading
                   ? null
-                  : () => ref.read(playbackControllerProvider).playTrack(track),
+                  : () => playTrackWithLoading(track),
             );
           },
         );
@@ -627,7 +739,7 @@ class _TrackList extends ConsumerWidget {
   }
 }
 
-class _DownloadList extends ConsumerWidget {
+class _DownloadList extends ConsumerStatefulWidget {
   const _DownloadList({
     required this.asyncDownloads,
     required this.controlsLocked,
@@ -637,7 +749,16 @@ class _DownloadList extends ConsumerWidget {
   final bool controlsLocked;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_DownloadList> createState() => _DownloadListState();
+}
+
+class _DownloadListState extends ConsumerState<_DownloadList>
+    with _TrackPlaybackLoadingState<_DownloadList> {
+  @override
+  Widget build(BuildContext context) {
+    final asyncDownloads = widget.asyncDownloads;
+    final controlsLocked = widget.controlsLocked;
+
     return asyncDownloads.when(
       data: (downloads) {
         if (downloads.isEmpty) {
@@ -655,21 +776,23 @@ class _DownloadList extends ConsumerWidget {
           separatorBuilder: (context, index) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final download = downloads[index];
+            final isLoading = isLoadingTrack(download.track);
             return _TrackTileCard(
               track: download.track,
               controlsLocked: controlsLocked,
+              isLoading: isLoading,
               trailing: IconButton(
-                onPressed: () => ref
-                    .read(downloadManagerProvider)
-                    .deleteDownload(download.track.id),
+                onPressed: isLoading
+                    ? null
+                    : () => ref
+                          .read(downloadManagerProvider)
+                          .deleteDownload(download.track.id),
                 icon: const Icon(Icons.delete_outline_rounded),
               ),
               badge: 'Offline',
-              onTap: controlsLocked
+              onTap: controlsLocked || isLoading
                   ? null
-                  : () => ref
-                        .read(playbackControllerProvider)
-                        .playTrack(download.track),
+                  : () => playTrackWithLoading(download.track),
             );
           },
         );
@@ -947,6 +1070,7 @@ class _TrackTileCard extends StatelessWidget {
     required this.track,
     required this.controlsLocked,
     required this.onTap,
+    this.isLoading = false,
     this.trailing,
     this.badge,
   });
@@ -954,6 +1078,7 @@ class _TrackTileCard extends StatelessWidget {
   final Track track;
   final bool controlsLocked;
   final VoidCallback? onTap;
+  final bool isLoading;
   final Widget? trailing;
   final String? badge;
 
@@ -964,7 +1089,7 @@ class _TrackTileCard extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
+        onTap: isLoading ? null : onTap,
         child: Ink(
           decoration: BoxDecoration(
             gradient: palette.tileGradient,
@@ -1039,13 +1164,17 @@ class _TrackTileCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      controlsLocked
+                      isLoading
+                          ? 'Loading song...'
+                          : controlsLocked
                           ? 'Host-controlled playback is active'
                           : track.albumName ?? 'Ready to play',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: controlsLocked
+                        color: isLoading
+                            ? palette.accent
+                            : controlsLocked
                             ? palette.warning
                             : palette.textSecondary,
                       ),
@@ -1054,25 +1183,44 @@ class _TrackTileCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              trailing ??
-                  Container(
-                    width: 38,
-                    height: 38,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: controlsLocked
-                          ? palette.surfaceInset
-                          : palette.accentSoft,
-                    ),
-                    child: Icon(
-                      controlsLocked
-                          ? Icons.lock_outline_rounded
-                          : Icons.play_arrow_rounded,
-                      color: controlsLocked
-                          ? palette.textSecondary
-                          : palette.accent,
+              if (isLoading)
+                Container(
+                  width: 38,
+                  height: 38,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: palette.accentSoft,
+                  ),
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.3,
+                      color: palette.accent,
                     ),
                   ),
+                )
+              else
+                trailing ??
+                    Container(
+                      width: 38,
+                      height: 38,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: controlsLocked
+                            ? palette.surfaceInset
+                            : palette.accentSoft,
+                      ),
+                      child: Icon(
+                        controlsLocked
+                            ? Icons.lock_outline_rounded
+                            : Icons.play_arrow_rounded,
+                        color: controlsLocked
+                            ? palette.textSecondary
+                            : palette.accent,
+                      ),
+                    ),
             ],
           ),
         ),
