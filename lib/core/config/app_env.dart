@@ -29,9 +29,11 @@ class AppEnv {
           _cleanApiBaseUrl(_musicApiBaseUrl) ?? _defaultMusicApiBaseUrl,
       aurexApiBaseUrl:
           _cleanApiBaseUrl(_aurexApiBaseUrl) ?? _defaultAurexApiBaseUrl,
-      supabaseUrl: _clean(_supabaseUrl),
+      supabaseUrl: _clean(_supabaseUrl) ?? _defaultSupabaseUrl,
       supabaseAnonKey:
-          _clean(_supabasePublishableKey) ?? _clean(_supabaseAnonKey),
+          _clean(_supabasePublishableKey) ??
+          _clean(_supabaseAnonKey) ??
+          _defaultSupabasePublishableKey,
       authRedirectScheme: _clean(_authRedirectScheme) ?? 'aurex',
       authRedirectHost: _clean(_authRedirectHost) ?? 'auth-callback',
     );
@@ -41,6 +43,9 @@ class AppEnv {
       kIsWeb ? '/music-api' : 'https://elitejiosaavn-api.vercel.app';
   static String get _defaultAurexApiBaseUrl =>
       kIsWeb ? '/aurex-api' : 'https://aurex-api-two.vercel.app';
+  static const _defaultSupabaseUrl = 'https://xbwxwhimlghtppmpyqhi.supabase.co';
+  static const _defaultSupabasePublishableKey =
+      'sb_publishable_GUG5zMWizrNP959CCRY3mg_73j1Cf-7';
   static const _musicApiBaseUrl = String.fromEnvironment('JIOSAAVN_BASE_URL');
   static const _aurexApiBaseUrl = String.fromEnvironment('AUREX_API_BASE_URL');
   static const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');

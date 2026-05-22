@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:aurex/core/config/app_env.dart';
 import 'package:aurex/core/widgets/network_artwork.dart';
 import 'package:aurex/core/utils/formatters.dart';
 import 'package:aurex/features/music/domain/music_models.dart';
@@ -30,6 +31,14 @@ void main() {
       isCorsProneArtworkUrl('https://c.saavncdn.com/123/album/500x500.jpg'),
       isFalse,
     );
+  });
+
+  test('native builds keep profile and rooms configured by default', () async {
+    final env = await AppEnv.load();
+
+    expect(env.hasSupabase, isTrue);
+    expect(env.supabaseUrl, startsWith('https://'));
+    expect(env.supabaseAnonKey, startsWith('sb_publishable_'));
   });
 
   test(
