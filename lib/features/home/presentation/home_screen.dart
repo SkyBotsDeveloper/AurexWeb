@@ -35,6 +35,31 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _loadingRecentTrackId;
+  late final PlaybackController _playbackController;
+
+  @override
+  void initState() {
+    super.initState();
+    _playbackController = ref.read(playbackControllerProvider);
+    _playbackController.notifier.addListener(_handlePlaybackChanged);
+  }
+
+  @override
+  void dispose() {
+    _playbackController.notifier.removeListener(_handlePlaybackChanged);
+    super.dispose();
+  }
+
+  void _handlePlaybackChanged() {
+    final loadingTrackId = _loadingRecentTrackId;
+    if (!mounted || loadingTrackId == null) {
+      return;
+    }
+    final snapshot = _playbackController.snapshot;
+    if (snapshot.currentTrack?.id == loadingTrackId || snapshot.error != null) {
+      setState(() => _loadingRecentTrackId = null);
+    }
+  }
 
   Future<void> _playRecentTrack(
     Track track,
@@ -52,7 +77,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     setState(() => _loadingRecentTrackId = track.id);
     try {
-      await ref.read(playbackControllerProvider).playTrack(track);
+      await _playbackController.playTrack(track);
     } catch (error) {
       if (!mounted) {
         return;
