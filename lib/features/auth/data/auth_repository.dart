@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/app_env.dart';
 import '../../../core/config/app_providers.dart';
+import '../../../core/logging/app_logger.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>(
   (ref) => AuthRepository(
@@ -21,7 +22,7 @@ final authEventProvider = StreamProvider<AuthState?>((ref) {
   if (client == null) {
     return Stream<AuthState?>.value(null);
   }
-  return client.auth.onAuthStateChange;
+  return ref.watch(authRepositoryProvider).watchAuthEvents();
 });
 
 class AuthSessionState {
@@ -42,6 +43,27 @@ class AuthRepository {
 
   Session? get currentSession => _client?.auth.currentSession;
 
+  Stream<AuthState?> watchAuthEvents() async* {
+    if (_client == null) {
+      yield null;
+      return;
+    }
+
+    while (true) {
+      try {
+        await for (final data in _client.auth.onAuthStateChange) {
+          yield data;
+        }
+        return;
+      } catch (error, stackTrace) {
+        _logAuthRecovery('Auth event stream recovered', error, stackTrace);
+        await _clearBrokenLocalSessionIfSignedOut();
+        yield null;
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+      }
+    }
+  }
+
   Stream<AuthSessionState> watchSession() async* {
     if (_client == null) {
       yield const AuthSessionState(isConfigured: false, session: null);
@@ -53,9 +75,25 @@ class AuthRepository {
       session: _client.auth.currentSession,
     );
 
-    yield* _client.auth.onAuthStateChange.map(
-      (data) => AuthSessionState(isConfigured: true, session: data.session),
-    );
+    while (true) {
+      try {
+        await for (final data in _client.auth.onAuthStateChange) {
+          yield AuthSessionState(
+            isConfigured: true,
+            session: data.session ?? _client.auth.currentSession,
+          );
+        }
+        return;
+      } catch (error, stackTrace) {
+        _logAuthRecovery('Auth session stream recovered', error, stackTrace);
+        await _clearBrokenLocalSessionIfSignedOut();
+        yield AuthSessionState(
+          isConfigured: true,
+          session: _client.auth.currentSession,
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 600));
+      }
+    }
   }
 
   Future<void> signInWithEmail({
@@ -98,6 +136,29 @@ class AuthRepository {
   Future<void> signOut() async {
     _requireClient();
     await _client!.auth.signOut();
+  }
+
+  Future<void> _clearBrokenLocalSessionIfSignedOut() async {
+    final client = _client;
+    if (client == null || client.auth.currentSession != null) {
+      return;
+    }
+
+    try {
+      await client.auth.signOut();
+    } catch (error, stackTrace) {
+      _logAuthRecovery(
+        'Unable to clear broken local auth session',
+        error,
+        stackTrace,
+      );
+    }
+  }
+
+  void _logAuthRecovery(String message, Object error, StackTrace stackTrace) {
+    if (kDebugMode) {
+      AppLogger.instance.w(message, error: error, stackTrace: stackTrace);
+    }
   }
 
   void _requireClient() {

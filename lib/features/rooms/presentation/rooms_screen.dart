@@ -221,9 +221,14 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => StateScaffold(
-          icon: Icons.error_outline_rounded,
-          title: 'Room auth error',
-          message: friendlyErrorMessage(error),
+          icon: Icons.lock_reset_rounded,
+          title: 'Sign in again',
+          message:
+              '${friendlyErrorMessage(error)} Rooms need a fresh account session.',
+          action: FilledButton(
+            onPressed: () => context.push('/auth'),
+            child: const Text('Open Sign In'),
+          ),
         ),
       ),
     );

@@ -90,9 +90,14 @@ class ProfileScreen extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => StateScaffold(
-          icon: Icons.error_outline_rounded,
-          title: 'Profile error',
-          message: friendlyErrorMessage(error),
+          icon: Icons.lock_reset_rounded,
+          title: 'Sign in again',
+          message:
+              '${friendlyErrorMessage(error)} Your saved session may have expired.',
+          action: FilledButton(
+            onPressed: () => context.push('/auth'),
+            child: const Text('Open Sign In'),
+          ),
         ),
       ),
     );
