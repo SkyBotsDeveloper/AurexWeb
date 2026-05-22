@@ -3,6 +3,16 @@ import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
 class AppTheme {
+  static const _fontFamily = 'NotoSans';
+  static const _fontFamilyFallback = [
+    'NotoSansDevanagari',
+    'NotoSansBengali',
+    'NotoSansTamil',
+    'NotoSansTelugu',
+    'NotoSansArabic',
+    'NotoSansSymbols2',
+  ];
+
   static ThemeData darkTheme([
     AppThemeColorPreference colorPreference =
         AppThemeColorPreference.lightningBlue,
@@ -36,6 +46,8 @@ class AppTheme {
       useMaterial3: true,
       brightness: brightness,
       visualDensity: VisualDensity.standard,
+      fontFamily: _fontFamily,
+      fontFamilyFallback: _fontFamilyFallback,
       extensions: [palette],
       colorScheme: scheme.copyWith(
         primary: palette.accent,

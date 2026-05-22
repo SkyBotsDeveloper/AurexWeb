@@ -379,6 +379,7 @@ class FakePlaybackController implements PlaybackController {
     Duration initialPosition = Duration.zero,
     bool autoplay = true,
     bool bypassRoomLock = false,
+    int? forceAurexRefreshIndex,
   }) async {
     notifier.value = notifier.value.copyWith(
       queue: queue,

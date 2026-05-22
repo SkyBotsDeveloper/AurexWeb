@@ -54,11 +54,14 @@ class PlaybackController {
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   Future<void> _queueOperation = Future.value();
   int _queueRequestVersion = 0;
+  DateTime? _pausedAt;
+  bool _refreshingAurexPlayback = false;
 
   static const _queueKey = 'playback.queue';
   static const _indexKey = 'playback.index';
   static const _positionKey = 'playback.position_ms';
   static const _playingKey = 'playback.playing';
+  static const _aurexResumeRefreshAfter = Duration(seconds: 25);
 
   PlaybackSnapshot get snapshot => notifier.value;
 
@@ -75,6 +78,7 @@ class PlaybackController {
     Duration initialPosition = Duration.zero,
     bool autoplay = true,
     bool bypassRoomLock = false,
+    int? forceAurexRefreshIndex,
   }) async {
     if (!_canControl(bypassRoomLock)) {
       return;
@@ -92,6 +96,7 @@ class PlaybackController {
             initialIndex: initialIndex,
             initialPosition: initialPosition,
             autoplay: autoplay,
+            forceAurexRefreshIndex: forceAurexRefreshIndex,
             requestVersion: requestVersion,
           ),
         );
@@ -103,6 +108,7 @@ class PlaybackController {
     required int initialIndex,
     required Duration initialPosition,
     required bool autoplay,
+    int? forceAurexRefreshIndex,
     required int requestVersion,
   }) async {
     if (requestVersion != _queueRequestVersion) {
@@ -114,8 +120,12 @@ class PlaybackController {
     final sources = <AudioSource>[];
     final playableTracks = <Track>[];
 
-    for (final track in queue) {
-      final uri = await _resolveTrackUri(track);
+    for (var sourceIndex = 0; sourceIndex < queue.length; sourceIndex++) {
+      final track = queue[sourceIndex];
+      final uri = await _resolveTrackUri(
+        track,
+        forceAurexRefresh: sourceIndex == forceAurexRefreshIndex,
+      );
       if (uri == null) {
         AppLogger.instance.w(
           'Skipping unplayable track because no audio source was resolved',
@@ -301,8 +311,13 @@ class PlaybackController {
       return;
     }
     if (_player.playing) {
+      _pausedAt = DateTime.now();
       await _player.pause();
     } else {
+      if (await _refreshCurrentAurexSourceForResume()) {
+        await _persistSession();
+        return;
+      }
       _launchPlayRequest();
     }
     await _persistSession();
@@ -425,6 +440,11 @@ class PlaybackController {
     );
     _subscriptions.add(
       _player.playerStateStream.listen((state) {
+        if (state.playing) {
+          _pausedAt = null;
+        } else if (!_player.playing && _pausedAt == null) {
+          _pausedAt = DateTime.now();
+        }
         AppLogger.instance.d(
           'Player state changed: playing=${state.playing}, '
           'processing=${state.processingState.name}, '
@@ -458,6 +478,10 @@ class PlaybackController {
         notifier.value = notifier.value.copyWith(
           error: 'Playback stopped unexpectedly. Please retry this track.',
         );
+        final track = notifier.value.currentTrack;
+        if (track != null && track.isAurexSource) {
+          unawaited(_refreshCurrentAurexSourceForResume(force: true));
+        }
       }),
     );
   }
@@ -502,9 +526,76 @@ class PlaybackController {
     await _prefs.setBool(_playingKey, snapshot.isPlaying);
   }
 
-  Future<Uri?> _resolveTrackUri(Track track) async {
+  Future<bool> _refreshCurrentAurexSourceForResume({bool force = false}) async {
+    if (_refreshingAurexPlayback) {
+      return true;
+    }
+    final queue = snapshot.queue;
+    if (queue.isEmpty) {
+      return false;
+    }
+    final currentIndex = snapshot.currentIndex ?? _player.currentIndex;
+    if (currentIndex == null ||
+        currentIndex < 0 ||
+        currentIndex >= queue.length) {
+      return false;
+    }
+    final currentTrack = queue[currentIndex];
+    if (!currentTrack.isAurexSource) {
+      return false;
+    }
+
+    final shouldRefresh =
+        force ||
+        _player.processingState == ProcessingState.idle ||
+        (_pausedAt != null &&
+            DateTime.now().difference(_pausedAt!) >= _aurexResumeRefreshAfter);
+    if (!shouldRefresh) {
+      return false;
+    }
+
+    _refreshingAurexPlayback = true;
+    try {
+      final resumePosition = _player.position;
+      AppLogger.instance.i(
+        'Refreshing Aurex stream before resume for ${currentTrack.id} '
+        'at ${resumePosition.inMilliseconds}ms',
+      );
+      await setQueue(
+        queue,
+        initialIndex: currentIndex,
+        initialPosition: resumePosition,
+        autoplay: true,
+        bypassRoomLock: true,
+        forceAurexRefreshIndex: currentIndex,
+      );
+      return true;
+    } catch (error, stackTrace) {
+      AppLogger.instance.e(
+        'Failed to refresh Aurex stream before resume',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      notifier.value = notifier.value.copyWith(
+        error: friendlyErrorMessage(
+          error,
+          fallback: 'Could not resume this song. Please try again.',
+        ),
+      );
+      return false;
+    } finally {
+      _refreshingAurexPlayback = false;
+    }
+  }
+
+  Future<Uri?> _resolveTrackUri(
+    Track track, {
+    bool forceAurexRefresh = false,
+  }) async {
     if (track.isAurexSource) {
-      final inMemoryUrl = track.bestAudioUrl(AudioQuality.kbps160);
+      final inMemoryUrl = forceAurexRefresh
+          ? null
+          : track.bestAudioUrl(AudioQuality.kbps160);
       if (inMemoryUrl != null) {
         return Uri.tryParse(inMemoryUrl);
       }
