@@ -423,6 +423,7 @@ void main() {
             searchResults: results,
           ),
         ),
+        aurexApiClientProvider.overrideWithValue(FakeAurexApiClient(const [])),
       ],
     );
     addTearDown(container.dispose);
@@ -482,6 +483,7 @@ void main() {
             ),
           ),
         ),
+        aurexApiClientProvider.overrideWithValue(FakeAurexApiClient(const [])),
       ],
     );
     addTearDown(container.dispose);
@@ -506,6 +508,117 @@ void main() {
       'failed-3',
     ]);
     expect(fakePlayback.snapshot.currentIndex, 0);
+  });
+
+  testWidgets('online songs merge after primary songs and remove duplicates', (
+    tester,
+  ) async {
+    final tracks = [
+      searchTrack('merged-1', 'Integrated Song'),
+      searchTrack('merged-2', 'Primary Only Song'),
+    ];
+    final client = FakeAurexApiClient([
+      _onlineSong('merged-duplicate', 'Integrated Song (Official Video)'),
+      _onlineSong('merged-extra', 'Extra Online Song'),
+    ]);
+    final container = ProviderContainer(
+      overrides: [
+        playbackControllerProvider.overrideWithValue(
+          FakePlaybackController(const PlaybackSnapshot()),
+        ),
+        musicRepositoryProvider.overrideWithValue(
+          FakeMusicRepository(
+            sampleTrack,
+            sampleCollection,
+            tracksById: {for (final track in tracks) track.id: track},
+            searchResults: SearchResults(
+              topQuery: const [],
+              songs: tracks.map(searchSummary).toList(),
+              albums: const [],
+              artists: const [],
+              playlists: const [],
+            ),
+          ),
+        ),
+        aurexApiClientProvider.overrideWithValue(client),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SearchScreen()),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'integrated song');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+
+    final titles = tester
+        .widgetList<ListTile>(find.byType(ListTile))
+        .map((tile) => (tile.title as Text).data)
+        .whereType<String>()
+        .toList();
+    expect(titles, [
+      'Integrated Song',
+      'Primary Only Song',
+      'Extra Online Song',
+    ]);
+    expect(find.text('Integrated Song (Official Video)'), findsNothing);
+    expect(find.text('Online'), findsOneWidget);
+    expect(find.text('Online results'), findsNothing);
+    expect(find.text('Search online too'), findsNothing);
+    expect(client.searchQueries, ['integrated song']);
+  });
+
+  testWidgets('scoped online retry bypasses the Aurex search cache', (
+    tester,
+  ) async {
+    final track = searchTrack('retry-local', 'Retry Local Song');
+    final client = FakeAurexApiClient([
+      _onlineSong('retry-online', 'Retry Online Song'),
+    ], searchFailuresRemaining: 1);
+    final container = ProviderContainer(
+      overrides: [
+        playbackControllerProvider.overrideWithValue(
+          FakePlaybackController(const PlaybackSnapshot()),
+        ),
+        musicRepositoryProvider.overrideWithValue(
+          FakeMusicRepository(
+            sampleTrack,
+            sampleCollection,
+            tracksById: {track.id: track},
+            searchResults: SearchResults(
+              topQuery: const [],
+              songs: [searchSummary(track)],
+              albums: const [],
+              artists: const [],
+              playlists: const [],
+            ),
+          ),
+        ),
+        aurexApiClientProvider.overrideWithValue(client),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: const MaterialApp(home: SearchScreen()),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'retry song');
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pumpAndSettle();
+    final retry = find.text('Retry');
+    await tester.ensureVisible(retry);
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+
+    expect(client.forceRefreshRequests, [false, true]);
+    expect(find.text('Retry Online Song'), findsOneWidget);
   });
 
   testWidgets('online search starts selected song before appending neighbors', (
@@ -583,6 +696,7 @@ void main() {
       overrides: [
         playbackControllerProvider.overrideWithValue(fakePlayback),
         musicRepositoryProvider.overrideWithValue(repository),
+        aurexApiClientProvider.overrideWithValue(FakeAurexApiClient(const [])),
       ],
     );
     addTearDown(container.dispose);
@@ -791,9 +905,13 @@ AurexSong _onlineSong(String videoId, String title) => AurexSong(
 );
 
 class FakeAurexApiClient extends AurexApiClient {
-  FakeAurexApiClient(this.songs) : super(Dio(), Logger());
+  FakeAurexApiClient(this.songs, {this.searchFailuresRemaining = 0})
+    : super(Dio(), Logger());
 
   final List<AurexSong> songs;
+  int searchFailuresRemaining;
+  final List<String> searchQueries = [];
+  final List<bool> forceRefreshRequests = [];
 
   @override
   Future<List<AurexSong>> searchAurexSongs(
@@ -801,7 +919,17 @@ class FakeAurexApiClient extends AurexApiClient {
     int limit = 10,
     CancelToken? cancelToken,
     bool forceRefresh = false,
-  }) async => songs.take(limit).toList();
+  }) async {
+    searchQueries.add(query);
+    forceRefreshRequests.add(forceRefresh);
+    if (searchFailuresRemaining > 0) {
+      searchFailuresRemaining -= 1;
+      throw const AurexApiException(
+        'Online search is temporarily unavailable.',
+      );
+    }
+    return songs.take(limit).toList();
+  }
 
   @override
   Future<Track> resolvePlayableTrack(

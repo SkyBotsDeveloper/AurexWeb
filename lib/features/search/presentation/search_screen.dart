@@ -24,6 +24,50 @@ import '../../rooms/data/room_session_controller.dart';
 const _searchGroupVisibleLimit = 5;
 const _relatedSearchTrackTimeout = Duration(seconds: 2);
 
+class _MergedSongResult {
+  const _MergedSongResult.primary(this.primarySong) : onlineSong = null;
+
+  const _MergedSongResult.online(this.onlineSong) : primarySong = null;
+
+  final MediaSummary? primarySong;
+  final AurexSong? onlineSong;
+
+  bool get isOnline => onlineSong != null;
+  String get id => onlineSong?.id ?? primarySong!.id;
+  String get title => onlineSong?.title ?? primarySong!.title;
+  String get artist =>
+      onlineSong?.channel ??
+      primarySong!.artistText ??
+      primarySong!.subtitle ??
+      'Unknown artist';
+  String? get artworkUrl =>
+      onlineSong?.image ?? onlineSong?.thumbnail ?? primarySong?.artworkUrl;
+}
+
+class _SongIdentity {
+  const _SongIdentity({required this.title, required this.artist});
+
+  final String title;
+  final String artist;
+
+  bool matches(_SongIdentity other) {
+    if (title.isEmpty || title != other.title) {
+      return false;
+    }
+    if (artist.isEmpty || other.artist.isEmpty) {
+      return false;
+    }
+    if (artist == other.artist) {
+      return true;
+    }
+    final shorterLength = artist.length < other.artist.length
+        ? artist.length
+        : other.artist.length;
+    return shorterLength >= 4 &&
+        (artist.contains(other.artist) || other.artist.contains(artist));
+  }
+}
+
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -39,14 +83,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   String _query = '';
   CancelToken? _onlineSearchCancelToken;
   int _onlineSearchVersion = 0;
-  bool _onlineSearchRequested = false;
   bool _onlineSearchLoading = false;
   String? _onlineSearchError;
   List<AurexSong> _onlineResults = const [];
   String? _loadingLocalSongId;
   String? _loadingOnlineSongId;
-  int _localPlaybackVersion = 0;
-  int _onlinePlaybackVersion = 0;
+  int _songPlaybackVersion = 0;
 
   @override
   void initState() {
@@ -58,8 +100,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void dispose() {
     _debounce?.cancel();
     _onlineSearchCancelToken?.cancel('Search screen disposed');
-    _localPlaybackVersion++;
-    _onlinePlaybackVersion++;
+    _songPlaybackVersion++;
     _controller.dispose();
     super.dispose();
   }
@@ -77,18 +118,19 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         _query = query;
         _onlineSearchCancelToken = null;
         _onlineSearchVersion++;
-        _onlineSearchRequested = false;
         _onlineSearchLoading = false;
         _onlineSearchError = null;
         _onlineResults = const [];
         _loadingLocalSongId = null;
         _loadingOnlineSongId = null;
-        _localPlaybackVersion++;
-        _onlinePlaybackVersion++;
+        _songPlaybackVersion++;
         _searchFuture = query.length < 2
             ? null
             : ref.read(musicRepositoryProvider).searchAll(query);
       });
+      if (query.length >= 2) {
+        unawaited(_startOnlineSearch());
+      }
     });
   }
 
@@ -108,30 +150,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _searchFuture = null;
       _onlineSearchCancelToken = null;
       _onlineSearchVersion++;
-      _onlineSearchRequested = false;
       _onlineSearchLoading = false;
       _onlineSearchError = null;
       _onlineResults = const [];
       _loadingLocalSongId = null;
       _loadingOnlineSongId = null;
-      _localPlaybackVersion++;
-      _onlinePlaybackVersion++;
+      _songPlaybackVersion++;
     });
   }
 
-  void _startOnlineSearchAfterFrame() {
-    if (_query.length < 2 || _onlineSearchRequested || _onlineSearchLoading) {
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _onlineSearchRequested || _onlineSearchLoading) {
-        return;
-      }
-      unawaited(_startOnlineSearch());
-    });
-  }
-
-  Future<void> _startOnlineSearch() async {
+  Future<void> _startOnlineSearch({bool forceRefresh = false}) async {
     final query = _query.trim();
     if (query.length < 2) {
       return;
@@ -143,7 +171,6 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     setState(() {
       _onlineSearchCancelToken = cancelToken;
-      _onlineSearchRequested = true;
       _onlineSearchLoading = true;
       _onlineSearchError = null;
     });
@@ -151,7 +178,11 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     try {
       final results = await ref
           .read(aurexApiClientProvider)
-          .searchAurexSongs(query, cancelToken: cancelToken);
+          .searchAurexSongs(
+            query,
+            cancelToken: cancelToken,
+            forceRefresh: forceRefresh,
+          );
       if (!mounted || version != _onlineSearchVersion) {
         return;
       }
@@ -187,27 +218,34 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
   }
 
-  Future<void> _playOnlineSong(AurexSong song) async {
+  Future<void> _playOnlineSong(
+    AurexSong song,
+    List<AurexSong> onlineCandidates,
+  ) async {
     if (!_canStartPlayback() || _loadingOnlineSongId == song.id) {
       return;
     }
-    final playbackVersion = ++_onlinePlaybackVersion;
-    setState(() => _loadingOnlineSongId = song.id);
+    final playbackVersion = ++_songPlaybackVersion;
+    setState(() {
+      _loadingLocalSongId = null;
+      _loadingOnlineSongId = song.id;
+    });
 
     try {
       final client = ref.read(aurexApiClientProvider);
       final controller = ref.read(playbackControllerProvider);
       final track = await client.resolvePlayableTrack(song);
-      if (!mounted || playbackVersion != _onlinePlaybackVersion) {
+      if (!mounted || playbackVersion != _songPlaybackVersion) {
         return;
       }
       await controller.setQueue([track], initialTrackId: track.id);
-      if (!mounted || playbackVersion != _onlinePlaybackVersion) {
+      if (!mounted || playbackVersion != _songPlaybackVersion) {
         return;
       }
       unawaited(
         _appendOnlineSuggestions(
           selected: song,
+          candidates: onlineCandidates,
           selectedTrackId: track.id,
           playbackVersion: playbackVersion,
           client: client,
@@ -215,7 +253,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
       );
     } catch (error) {
-      if (!mounted || playbackVersion != _onlinePlaybackVersion) {
+      if (!mounted || playbackVersion != _songPlaybackVersion) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -230,7 +268,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       );
     } finally {
       if (mounted &&
-          playbackVersion == _onlinePlaybackVersion &&
+          playbackVersion == _songPlaybackVersion &&
           _loadingOnlineSongId == song.id) {
         setState(() => _loadingOnlineSongId = null);
       }
@@ -240,6 +278,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   Future<void> _playPrimarySearchSong(
     MediaSummary selected,
     List<MediaSummary> visibleSongs,
+    List<AurexSong> onlineCandidates,
   ) async {
     if (selected.type != MusicItemType.song) {
       await openMediaSummary(context, ref, selected);
@@ -249,13 +288,16 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       return;
     }
 
-    final playbackVersion = ++_localPlaybackVersion;
-    setState(() => _loadingLocalSongId = selected.id);
+    final playbackVersion = ++_songPlaybackVersion;
+    setState(() {
+      _loadingLocalSongId = selected.id;
+      _loadingOnlineSongId = null;
+    });
 
     try {
       final repository = ref.read(musicRepositoryProvider);
       final selectedTrack = await repository.fetchSong(selected.id);
-      if (!mounted || playbackVersion != _localPlaybackVersion) {
+      if (!mounted || playbackVersion != _songPlaybackVersion) {
         return;
       }
 
@@ -280,7 +322,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           }
         }),
       );
-      if (!mounted || playbackVersion != _localPlaybackVersion) {
+      if (!mounted || playbackVersion != _songPlaybackVersion) {
         return;
       }
 
@@ -305,15 +347,26 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         queue.add(track);
       }
 
-      await ref
-          .read(playbackControllerProvider)
-          .setQueue(
-            queue,
-            initialIndex: initialIndex,
-            initialTrackId: selectedTrack.id,
-          );
+      final controller = ref.read(playbackControllerProvider);
+      await controller.setQueue(
+        queue,
+        initialIndex: initialIndex,
+        initialTrackId: selectedTrack.id,
+      );
+      if (!mounted || playbackVersion != _songPlaybackVersion) {
+        return;
+      }
+      unawaited(
+        _appendOnlineTracks(
+          suggestions: onlineCandidates.take(3).toList(),
+          selectedTrackId: selectedTrack.id,
+          playbackVersion: playbackVersion,
+          client: ref.read(aurexApiClientProvider),
+          controller: controller,
+        ),
+      );
     } catch (error) {
-      if (!mounted || playbackVersion != _localPlaybackVersion) {
+      if (!mounted || playbackVersion != _songPlaybackVersion) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -328,7 +381,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       );
     } finally {
       if (mounted &&
-          playbackVersion == _localPlaybackVersion &&
+          playbackVersion == _songPlaybackVersion &&
           _loadingLocalSongId == selected.id) {
         setState(() => _loadingLocalSongId = null);
       }
@@ -354,31 +407,46 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   Future<void> _appendOnlineSuggestions({
     required AurexSong selected,
+    required List<AurexSong> candidates,
     required String selectedTrackId,
     required int playbackVersion,
     required AurexApiClient client,
     required PlaybackController controller,
   }) async {
-    final selectedIndex = _onlineResults.indexWhere(
+    final selectedIndex = candidates.indexWhere(
       (result) => result.id == selected.id,
     );
-    if (selectedIndex < 0 || _onlineResults.length < 2) {
+    if (selectedIndex < 0 || candidates.length < 2) {
       return;
     }
 
     final suggestions = <AurexSong>[];
     for (
       var offset = 1;
-      offset < _onlineResults.length && suggestions.length < 3;
+      offset < candidates.length && suggestions.length < 3;
       offset++
     ) {
-      suggestions.add(
-        _onlineResults[(selectedIndex + offset) % _onlineResults.length],
-      );
+      suggestions.add(candidates[(selectedIndex + offset) % candidates.length]);
     }
 
+    await _appendOnlineTracks(
+      suggestions: suggestions,
+      selectedTrackId: selectedTrackId,
+      playbackVersion: playbackVersion,
+      client: client,
+      controller: controller,
+    );
+  }
+
+  Future<void> _appendOnlineTracks({
+    required List<AurexSong> suggestions,
+    required String selectedTrackId,
+    required int playbackVersion,
+    required AurexApiClient client,
+    required PlaybackController controller,
+  }) async {
     for (final suggestion in suggestions) {
-      if (!mounted || playbackVersion != _onlinePlaybackVersion) {
+      if (!mounted || playbackVersion != _songPlaybackVersion) {
         return;
       }
       if (controller.snapshot.currentTrack?.id != selectedTrackId) {
@@ -386,7 +454,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       }
       try {
         final track = await client.resolvePlayableTrack(suggestion);
-        if (!mounted || playbackVersion != _onlinePlaybackVersion) {
+        if (!mounted || playbackVersion != _songPlaybackVersion) {
           return;
         }
         await controller.appendToQueue([
@@ -400,6 +468,62 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         );
       }
     }
+  }
+
+  List<_MergedSongResult> _mergeSongResults(
+    List<MediaSummary> primarySongs,
+    List<AurexSong> onlineSongs,
+  ) {
+    final merged = <_MergedSongResult>[];
+    final identities = <_SongIdentity>[];
+    final seenIds = <String>{};
+
+    for (final song in primarySongs.take(_searchGroupVisibleLimit)) {
+      if (!seenIds.add(song.id.trim().toLowerCase())) {
+        continue;
+      }
+      merged.add(_MergedSongResult.primary(song));
+      identities.add(
+        _SongIdentity(
+          title: _normalizeSongPart(song.title),
+          artist: _normalizeSongPart(song.artistText ?? song.subtitle ?? ''),
+        ),
+      );
+    }
+
+    for (final song in onlineSongs) {
+      if (merged.length >= 10) {
+        break;
+      }
+      final id = song.id.trim().toLowerCase();
+      final identity = _SongIdentity(
+        title: _normalizeSongPart(song.title),
+        artist: _normalizeSongPart(song.channel),
+      );
+      if (!seenIds.add(id) ||
+          identities.any((existing) => existing.matches(identity))) {
+        continue;
+      }
+      merged.add(_MergedSongResult.online(song));
+      identities.add(identity);
+    }
+    return merged;
+  }
+
+  String _normalizeSongPart(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll('&', ' and ')
+        .replaceAll(
+          RegExp(
+            r'\b(official|video|audio|lyrics?|lyrical|hd|4k|full song)\b',
+            caseSensitive: false,
+          ),
+          ' ',
+        )
+        .replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), ' ')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
   }
 
   bool _canStartPlayback() {
@@ -556,24 +680,43 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const ResultsListSkeleton(groupCount: 2);
                 }
-                if (snapshot.hasError) {
+                final result =
+                    snapshot.data ??
+                    const SearchResults(
+                      topQuery: [],
+                      songs: [],
+                      albums: [],
+                      artists: [],
+                      playlists: [],
+                    );
+                final mergedSongs = _mergeSongResults(
+                  result.songs,
+                  _onlineResults,
+                );
+                final mergedOnlineSongs = mergedSongs
+                    .where((item) => item.onlineSong != null)
+                    .map((item) => item.onlineSong!)
+                    .toList(growable: false);
+                final hasAnyResults =
+                    result.topQuery.isNotEmpty ||
+                    mergedSongs.isNotEmpty ||
+                    result.albums.isNotEmpty ||
+                    result.artists.isNotEmpty ||
+                    result.playlists.isNotEmpty;
+                if (!hasAnyResults && !_onlineSearchLoading) {
+                  final failed =
+                      snapshot.hasError && _onlineSearchError != null;
                   return StateScaffold(
-                    icon: Icons.error_outline_rounded,
-                    title: 'Search failed',
-                    message: friendlyErrorMessage(snapshot.error),
-                  );
-                }
-                final result = snapshot.data;
-                if (result == null || result.isEmpty) {
-                  _startOnlineSearchAfterFrame();
-                  return _OnlineResultsSection(
-                    showEmptyLocalMessage: true,
-                    isLoading: _onlineSearchLoading || !_onlineSearchRequested,
-                    error: _onlineSearchError,
-                    results: _onlineResults,
-                    loadingSongId: _loadingOnlineSongId,
-                    onRetry: _startOnlineSearch,
-                    onSongSelected: _playOnlineSong,
+                    icon: failed
+                        ? Icons.error_outline_rounded
+                        : Icons.search_off_rounded,
+                    title: failed ? 'Search failed' : 'No results found',
+                    message: failed
+                        ? friendlyErrorMessage(
+                            snapshot.error,
+                            fallback: _onlineSearchError!,
+                          )
+                        : 'Try a different song title or artist.',
                   );
                 }
                 return Column(
@@ -587,33 +730,29 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         onTap: () => _playPrimarySearchSong(
                           result.topQuery.first,
                           result.songs,
+                          mergedOnlineSongs,
                         ),
                       ),
                       const SizedBox(height: 24),
                     ],
-                    _SearchGroup(
-                      title: 'Songs',
-                      items: result.songs,
-                      loadingItemId: _loadingLocalSongId,
-                      onItemSelected: (item) =>
-                          _playPrimarySearchSong(item, result.songs),
+                    _MergedSongsSection(
+                      items: mergedSongs,
+                      isFindingMore: _onlineSearchLoading,
+                      onlineError: _onlineSearchError,
+                      loadingLocalSongId: _loadingLocalSongId,
+                      loadingOnlineSongId: _loadingOnlineSongId,
+                      onRetry: () => _startOnlineSearch(forceRefresh: true),
+                      onPrimarySelected: (item) => _playPrimarySearchSong(
+                        item,
+                        result.songs,
+                        mergedOnlineSongs,
+                      ),
+                      onOnlineSelected: (song) =>
+                          _playOnlineSong(song, mergedOnlineSongs),
                     ),
                     _SearchGroup(title: 'Albums', items: result.albums),
                     _SearchGroup(title: 'Artists', items: result.artists),
                     _SearchGroup(title: 'Playlists', items: result.playlists),
-                    _SearchOnlineAction(
-                      isLoading: _onlineSearchLoading,
-                      isRequested: _onlineSearchRequested,
-                      onPressed: _startOnlineSearch,
-                    ),
-                    _OnlineResultsSection(
-                      isLoading: _onlineSearchLoading,
-                      error: _onlineSearchError,
-                      results: _onlineResults,
-                      loadingSongId: _loadingOnlineSongId,
-                      onRetry: _startOnlineSearch,
-                      onSongSelected: _playOnlineSong,
-                    ),
                   ],
                 );
               },
@@ -624,171 +763,138 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 }
 
-class _SearchOnlineAction extends StatelessWidget {
-  const _SearchOnlineAction({
-    required this.isLoading,
-    required this.isRequested,
-    required this.onPressed,
-  });
-
-  final bool isLoading;
-  final bool isRequested;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = isRequested ? 'Refresh online results' : 'Search online too';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 22),
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: OutlinedButton.icon(
-          onPressed: isLoading ? null : onPressed,
-          icon: isLoading
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.public_rounded),
-          label: Text(isLoading ? 'Searching online...' : label),
-        ),
-      ),
-    );
-  }
-}
-
-class _OnlineResultsSection extends StatelessWidget {
-  const _OnlineResultsSection({
-    required this.isLoading,
-    required this.error,
-    required this.results,
-    required this.loadingSongId,
+class _MergedSongsSection extends StatelessWidget {
+  const _MergedSongsSection({
+    required this.items,
+    required this.isFindingMore,
+    required this.onlineError,
+    required this.loadingLocalSongId,
+    required this.loadingOnlineSongId,
     required this.onRetry,
-    required this.onSongSelected,
-    this.showEmptyLocalMessage = false,
+    required this.onPrimarySelected,
+    required this.onOnlineSelected,
   });
 
-  final bool isLoading;
-  final String? error;
-  final List<AurexSong> results;
-  final String? loadingSongId;
+  final List<_MergedSongResult> items;
+  final bool isFindingMore;
+  final String? onlineError;
+  final String? loadingLocalSongId;
+  final String? loadingOnlineSongId;
   final VoidCallback onRetry;
-  final ValueChanged<AurexSong> onSongSelected;
-  final bool showEmptyLocalMessage;
+  final ValueChanged<MediaSummary> onPrimarySelected;
+  final ValueChanged<AurexSong> onOnlineSelected;
 
   @override
   Widget build(BuildContext context) {
-    if (!showEmptyLocalMessage &&
-        !isLoading &&
-        error == null &&
-        results.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
     final palette = AppColors.of(context);
-    final subtitle = showEmptyLocalMessage
-        ? 'No local results. Searching online...'
-        : 'Aurex API fallback results';
-
+    final hasStatus = isFindingMore || onlineError != null;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionHeader(
-          title: 'Online results',
-          subtitle: isLoading ? subtitle : 'Resolve only when you press play',
-          trailing: results.isEmpty
+          title: 'Songs',
+          subtitle: 'Best matches first',
+          trailing: items.isEmpty
               ? null
               : Text(
-                  '${results.length}',
+                  '${items.length}',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
         ),
         const SizedBox(height: 12),
-        if (isLoading && results.isEmpty)
-          const ResultsListSkeleton(groupCount: 1, rowCount: 4)
-        else if (error != null)
-          GlassPanel(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                Icon(Icons.cloud_off_rounded, color: palette.textSecondary),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    error!,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+        GlassPanel(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            children: [
+              for (var index = 0; index < items.length; index++) ...[
+                _MergedSongTile(
+                  item: items[index],
+                  isLoading: items[index].isOnline
+                      ? loadingOnlineSongId == items[index].id
+                      : loadingLocalSongId == items[index].id,
+                  onTap: () {
+                    final onlineSong = items[index].onlineSong;
+                    if (onlineSong != null) {
+                      onOnlineSelected(onlineSong);
+                    } else {
+                      onPrimarySelected(items[index].primarySong!);
+                    }
+                  },
                 ),
-                const SizedBox(width: 12),
-                TextButton(onPressed: onRetry, child: const Text('Retry')),
+                if (index < items.length - 1 || hasStatus)
+                  Divider(color: palette.border.withAlpha(120), height: 20),
               ],
-            ),
-          )
-        else if (results.isEmpty)
-          const StateScaffold(
-            icon: Icons.search_off_rounded,
-            title: 'No online results',
-            message: 'Try a different song title or artist.',
-          )
-        else
-          GlassPanel(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: [
-                if (isLoading) ...[
-                  Row(
-                    children: [
-                      const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Searching online...',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
+              if (isFindingMore)
+                const _SearchSongsStatus(
+                  icon: CircularProgressIndicator(strokeWidth: 2),
+                  message: 'Finding more songs...',
+                )
+              else if (onlineError != null)
+                _SearchSongsStatus(
+                  icon: Icon(
+                    Icons.cloud_off_rounded,
+                    color: palette.textSecondary,
                   ),
-                  Divider(color: palette.border.withAlpha(120), height: 22),
-                ],
-                for (var index = 0; index < results.length; index++) ...[
-                  _OnlineResultTile(
-                    song: results[index],
-                    isLoading: loadingSongId == results[index].id,
-                    onSelected: onSongSelected,
+                  message: 'More songs are temporarily unavailable.',
+                  action: TextButton(
+                    onPressed: onRetry,
+                    child: const Text('Retry'),
                   ),
-                  if (index < results.length - 1)
-                    Divider(color: palette.border.withAlpha(120), height: 20),
-                ],
-              ],
-            ),
+                )
+              else if (items.isEmpty)
+                const _SearchSongsStatus(
+                  icon: Icon(Icons.search_off_rounded),
+                  message: 'No songs found for this search.',
+                ),
+            ],
           ),
+        ),
         const SizedBox(height: 22),
       ],
     );
   }
 }
 
-class _OnlineResultTile extends StatelessWidget {
-  const _OnlineResultTile({
-    required this.song,
-    required this.isLoading,
-    required this.onSelected,
+class _SearchSongsStatus extends StatelessWidget {
+  const _SearchSongsStatus({
+    required this.icon,
+    required this.message,
+    this.action,
   });
 
-  final AurexSong song;
-  final bool isLoading;
-  final ValueChanged<AurexSong> onSelected;
+  final Widget icon;
+  final String message;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
-    final subtitleParts = [
-      song.channel,
-      if ((song.duration ?? '').trim().isNotEmpty) song.duration!,
-    ];
+    return Row(
+      children: [
+        SizedBox.square(dimension: 20, child: Center(child: icon)),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+        ),
+        ?action,
+      ],
+    );
+  }
+}
 
+class _MergedSongTile extends StatelessWidget {
+  const _MergedSongTile({
+    required this.item,
+    required this.isLoading,
+    required this.onTap,
+  });
+
+  final _MergedSongResult item;
+  final bool isLoading;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppColors.of(context);
     return ListTile(
       enabled: !isLoading,
       leading: ClipRRect(
@@ -797,30 +903,57 @@ class _OnlineResultTile extends StatelessWidget {
           width: 54,
           height: 54,
           child: NetworkArtwork(
-            imageUrl: song.image ?? song.thumbnail,
+            imageUrl: item.artworkUrl,
+            cleanArtworkQuery: item.title,
+            cleanArtworkType: 'song',
+            cleanArtworkSubtitle: item.artist,
             fallbackIcon: Icons.music_note_rounded,
             iconSize: 28,
           ),
         ),
       ),
-      title: Text(song.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-      subtitle: Text(
-        isLoading ? 'Loading song...' : subtitleParts.join(' - '),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: isLoading
-          ? const SizedBox(
-              width: 28,
-              height: 28,
-              child: CircularProgressIndicator(strokeWidth: 2.4),
-            )
-          : FilledButton.tonalIcon(
-              onPressed: () => onSelected(song),
-              icon: const Icon(Icons.play_arrow_rounded),
-              label: const Text('Play'),
+      title: Text(item.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      subtitle: isLoading
+          ? const Text('Preparing queue...')
+          : Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    item.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (item.isOnline) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: palette.accent.withAlpha(24),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: palette.accent.withAlpha(70)),
+                    ),
+                    child: Text(
+                      'Online',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: palette.accent,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
-      onTap: isLoading ? null : () => onSelected(song),
+      trailing: isLoading
+          ? const SizedBox.square(
+              dimension: 24,
+              child: CircularProgressIndicator(strokeWidth: 2.2),
+            )
+          : const Icon(Icons.play_arrow_rounded),
+      onTap: isLoading ? null : onTap,
     );
   }
 }
@@ -916,17 +1049,10 @@ class _TopResultCard extends StatelessWidget {
 }
 
 class _SearchGroup extends ConsumerWidget {
-  const _SearchGroup({
-    required this.title,
-    required this.items,
-    this.loadingItemId,
-    this.onItemSelected,
-  });
+  const _SearchGroup({required this.title, required this.items});
 
   final String title;
   final List<MediaSummary> items;
-  final String? loadingItemId;
-  final ValueChanged<MediaSummary>? onItemSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -956,15 +1082,8 @@ class _SearchGroup extends ConsumerWidget {
               for (var index = 0; index < visibleItems.length; index++) ...[
                 _SearchResultTile(
                   item: visibleItems[index],
-                  isLoading: loadingItemId == visibleItems[index].id,
-                  onTap: () {
-                    final onSelected = onItemSelected;
-                    if (onSelected != null) {
-                      onSelected(visibleItems[index]);
-                    } else {
-                      openMediaSummary(context, ref, visibleItems[index]);
-                    }
-                  },
+                  onTap: () =>
+                      openMediaSummary(context, ref, visibleItems[index]),
                 ),
                 if (index < visibleItems.length - 1)
                   Divider(color: palette.border.withAlpha(120), height: 20),
@@ -1041,20 +1160,14 @@ class _BrowseTile extends ConsumerWidget {
 }
 
 class _SearchResultTile extends StatelessWidget {
-  const _SearchResultTile({
-    required this.item,
-    required this.isLoading,
-    required this.onTap,
-  });
+  const _SearchResultTile({required this.item, required this.onTap});
 
   final MediaSummary item;
-  final bool isLoading;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      enabled: !isLoading,
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: SizedBox(
@@ -1072,18 +1185,9 @@ class _SearchResultTile extends StatelessWidget {
         ),
       ),
       title: Text(item.title),
-      subtitle: Text(
-        isLoading
-            ? 'Preparing queue...'
-            : item.artistText ?? item.subtitle ?? item.type.name,
-      ),
-      trailing: isLoading
-          ? const SizedBox.square(
-              dimension: 24,
-              child: CircularProgressIndicator(strokeWidth: 2.2),
-            )
-          : const Icon(Icons.chevron_right_rounded),
-      onTap: isLoading ? null : onTap,
+      subtitle: Text(item.artistText ?? item.subtitle ?? item.type.name),
+      trailing: const Icon(Icons.chevron_right_rounded),
+      onTap: onTap,
     );
   }
 }
