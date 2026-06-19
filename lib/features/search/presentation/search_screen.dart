@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/artwork_card.dart';
@@ -18,6 +19,10 @@ import '../../music/data/music_repository.dart';
 import '../../music/domain/music_models.dart';
 import '../../music/presentation/open_media_summary.dart';
 import '../../player/data/playback_controller.dart';
+import '../../rooms/data/room_session_controller.dart';
+
+const _searchGroupVisibleLimit = 5;
+const _relatedSearchTrackTimeout = Duration(seconds: 2);
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -38,7 +43,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   bool _onlineSearchLoading = false;
   String? _onlineSearchError;
   List<AurexSong> _onlineResults = const [];
+  String? _loadingLocalSongId;
   String? _loadingOnlineSongId;
+  int _localPlaybackVersion = 0;
+  int _onlinePlaybackVersion = 0;
 
   @override
   void initState() {
@@ -50,6 +58,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   void dispose() {
     _debounce?.cancel();
     _onlineSearchCancelToken?.cancel('Search screen disposed');
+    _localPlaybackVersion++;
+    _onlinePlaybackVersion++;
     _controller.dispose();
     super.dispose();
   }
@@ -71,7 +81,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         _onlineSearchLoading = false;
         _onlineSearchError = null;
         _onlineResults = const [];
+        _loadingLocalSongId = null;
         _loadingOnlineSongId = null;
+        _localPlaybackVersion++;
+        _onlinePlaybackVersion++;
         _searchFuture = query.length < 2
             ? null
             : ref.read(musicRepositoryProvider).searchAll(query);
@@ -99,7 +112,10 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
       _onlineSearchLoading = false;
       _onlineSearchError = null;
       _onlineResults = const [];
+      _loadingLocalSongId = null;
       _loadingOnlineSongId = null;
+      _localPlaybackVersion++;
+      _onlinePlaybackVersion++;
     });
   }
 
@@ -172,18 +188,34 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
   }
 
   Future<void> _playOnlineSong(AurexSong song) async {
-    if (_loadingOnlineSongId == song.id) {
+    if (!_canStartPlayback() || _loadingOnlineSongId == song.id) {
       return;
     }
+    final playbackVersion = ++_onlinePlaybackVersion;
     setState(() => _loadingOnlineSongId = song.id);
 
     try {
-      final track = await ref
-          .read(aurexApiClientProvider)
-          .resolvePlayableTrack(song);
-      await ref.read(playbackControllerProvider).playTrack(track);
+      final client = ref.read(aurexApiClientProvider);
+      final controller = ref.read(playbackControllerProvider);
+      final track = await client.resolvePlayableTrack(song);
+      if (!mounted || playbackVersion != _onlinePlaybackVersion) {
+        return;
+      }
+      await controller.setQueue([track], initialTrackId: track.id);
+      if (!mounted || playbackVersion != _onlinePlaybackVersion) {
+        return;
+      }
+      unawaited(
+        _appendOnlineSuggestions(
+          selected: song,
+          selectedTrackId: track.id,
+          playbackVersion: playbackVersion,
+          client: client,
+          controller: controller,
+        ),
+      );
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || playbackVersion != _onlinePlaybackVersion) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
@@ -197,10 +229,188 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         ),
       );
     } finally {
-      if (mounted && _loadingOnlineSongId == song.id) {
+      if (mounted &&
+          playbackVersion == _onlinePlaybackVersion &&
+          _loadingOnlineSongId == song.id) {
         setState(() => _loadingOnlineSongId = null);
       }
     }
+  }
+
+  Future<void> _playPrimarySearchSong(
+    MediaSummary selected,
+    List<MediaSummary> visibleSongs,
+  ) async {
+    if (selected.type != MusicItemType.song) {
+      await openMediaSummary(context, ref, selected);
+      return;
+    }
+    if (!_canStartPlayback()) {
+      return;
+    }
+
+    final playbackVersion = ++_localPlaybackVersion;
+    setState(() => _loadingLocalSongId = selected.id);
+
+    try {
+      final repository = ref.read(musicRepositoryProvider);
+      final selectedTrack = await repository.fetchSong(selected.id);
+      if (!mounted || playbackVersion != _localPlaybackVersion) {
+        return;
+      }
+
+      final candidates = _orderedPrimaryCandidates(selected, visibleSongs);
+      final related = candidates.where((item) => item.id != selected.id);
+      final relatedEntries = await Future.wait(
+        related.map((item) async {
+          try {
+            return MapEntry(
+              item.id,
+              await repository
+                  .fetchSong(item.id)
+                  .timeout(_relatedSearchTrackTimeout),
+            );
+          } catch (error, stackTrace) {
+            AppLogger.instance.w(
+              'Skipping primary search queue item ${item.id}',
+              error: error,
+              stackTrace: stackTrace,
+            );
+            return null;
+          }
+        }),
+      );
+      if (!mounted || playbackVersion != _localPlaybackVersion) {
+        return;
+      }
+
+      final tracksBySummaryId = <String, Track>{selected.id: selectedTrack};
+      for (final entry in relatedEntries) {
+        if (entry != null) {
+          tracksBySummaryId[entry.key] = entry.value;
+        }
+      }
+
+      final queue = <Track>[];
+      final queuedTrackIds = <String>{};
+      var initialIndex = 0;
+      for (final item in candidates) {
+        final track = tracksBySummaryId[item.id];
+        if (track == null || !queuedTrackIds.add(track.id)) {
+          continue;
+        }
+        if (item.id == selected.id) {
+          initialIndex = queue.length;
+        }
+        queue.add(track);
+      }
+
+      await ref
+          .read(playbackControllerProvider)
+          .setQueue(
+            queue,
+            initialIndex: initialIndex,
+            initialTrackId: selectedTrack.id,
+          );
+    } catch (error) {
+      if (!mounted || playbackVersion != _localPlaybackVersion) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            friendlyErrorMessage(
+              error,
+              fallback: 'Could not load this song. Please try another result.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted &&
+          playbackVersion == _localPlaybackVersion &&
+          _loadingLocalSongId == selected.id) {
+        setState(() => _loadingLocalSongId = null);
+      }
+    }
+  }
+
+  List<MediaSummary> _orderedPrimaryCandidates(
+    MediaSummary selected,
+    List<MediaSummary> visibleSongs,
+  ) {
+    final candidates = <MediaSummary>[];
+    final seenIds = <String>{};
+    for (final item in visibleSongs.take(_searchGroupVisibleLimit)) {
+      if (item.type == MusicItemType.song && seenIds.add(item.id)) {
+        candidates.add(item);
+      }
+    }
+    if (seenIds.add(selected.id)) {
+      candidates.insert(0, selected);
+    }
+    return candidates;
+  }
+
+  Future<void> _appendOnlineSuggestions({
+    required AurexSong selected,
+    required String selectedTrackId,
+    required int playbackVersion,
+    required AurexApiClient client,
+    required PlaybackController controller,
+  }) async {
+    final selectedIndex = _onlineResults.indexWhere(
+      (result) => result.id == selected.id,
+    );
+    if (selectedIndex < 0 || _onlineResults.length < 2) {
+      return;
+    }
+
+    final suggestions = <AurexSong>[];
+    for (
+      var offset = 1;
+      offset < _onlineResults.length && suggestions.length < 3;
+      offset++
+    ) {
+      suggestions.add(
+        _onlineResults[(selectedIndex + offset) % _onlineResults.length],
+      );
+    }
+
+    for (final suggestion in suggestions) {
+      if (!mounted || playbackVersion != _onlinePlaybackVersion) {
+        return;
+      }
+      if (controller.snapshot.currentTrack?.id != selectedTrackId) {
+        return;
+      }
+      try {
+        final track = await client.resolvePlayableTrack(suggestion);
+        if (!mounted || playbackVersion != _onlinePlaybackVersion) {
+          return;
+        }
+        await controller.appendToQueue([
+          track,
+        ], expectedCurrentTrackId: selectedTrackId);
+      } catch (error, stackTrace) {
+        AppLogger.instance.w(
+          'Skipping Aurex search queue suggestion ${suggestion.id}',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+  }
+
+  bool _canStartPlayback() {
+    final roomSession = ref.read(roomSessionControllerProvider);
+    if (!roomSession.controlsLocked) {
+      return true;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(roomPlaybackLockedMessage(roomSession))),
+    );
+    return false;
   }
 
   @override
@@ -370,10 +580,24 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (result.topQuery.isNotEmpty) ...[
-                      _TopResultCard(item: result.topQuery.first),
+                      _TopResultCard(
+                        item: result.topQuery.first,
+                        isLoading:
+                            _loadingLocalSongId == result.topQuery.first.id,
+                        onTap: () => _playPrimarySearchSong(
+                          result.topQuery.first,
+                          result.songs,
+                        ),
+                      ),
                       const SizedBox(height: 24),
                     ],
-                    _SearchGroup(title: 'Songs', items: result.songs),
+                    _SearchGroup(
+                      title: 'Songs',
+                      items: result.songs,
+                      loadingItemId: _loadingLocalSongId,
+                      onItemSelected: (item) =>
+                          _playPrimarySearchSong(item, result.songs),
+                    ),
                     _SearchGroup(title: 'Albums', items: result.albums),
                     _SearchGroup(title: 'Artists', items: result.artists),
                     _SearchGroup(title: 'Playlists', items: result.playlists),
@@ -601,18 +825,24 @@ class _OnlineResultTile extends StatelessWidget {
   }
 }
 
-class _TopResultCard extends ConsumerWidget {
-  const _TopResultCard({required this.item});
+class _TopResultCard extends StatelessWidget {
+  const _TopResultCard({
+    required this.item,
+    required this.isLoading,
+    required this.onTap,
+  });
 
   final MediaSummary item;
+  final bool isLoading;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final palette = AppColors.of(context);
     return GlassPanel(
       padding: const EdgeInsets.all(18),
       child: InkWell(
-        onTap: () => openMediaSummary(context, ref, item),
+        onTap: isLoading ? null : onTap,
         borderRadius: BorderRadius.circular(22),
         child: Row(
           children: [
@@ -668,7 +898,15 @@ class _TopResultCard extends ConsumerWidget {
             CircleAvatar(
               radius: 20,
               backgroundColor: palette.accent,
-              child: Icon(Icons.play_arrow_rounded, color: palette.background),
+              child: isLoading
+                  ? SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: palette.background,
+                      ),
+                    )
+                  : Icon(Icons.play_arrow_rounded, color: palette.background),
             ),
           ],
         ),
@@ -678,10 +916,17 @@ class _TopResultCard extends ConsumerWidget {
 }
 
 class _SearchGroup extends ConsumerWidget {
-  const _SearchGroup({required this.title, required this.items});
+  const _SearchGroup({
+    required this.title,
+    required this.items,
+    this.loadingItemId,
+    this.onItemSelected,
+  });
 
   final String title;
   final List<MediaSummary> items;
+  final String? loadingItemId;
+  final ValueChanged<MediaSummary>? onItemSelected;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -690,7 +935,7 @@ class _SearchGroup extends ConsumerWidget {
     }
 
     final palette = AppColors.of(context);
-    final visibleItems = items.take(5).toList();
+    final visibleItems = items.take(_searchGroupVisibleLimit).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -709,7 +954,18 @@ class _SearchGroup extends ConsumerWidget {
           child: Column(
             children: [
               for (var index = 0; index < visibleItems.length; index++) ...[
-                _SearchResultTile(item: visibleItems[index]),
+                _SearchResultTile(
+                  item: visibleItems[index],
+                  isLoading: loadingItemId == visibleItems[index].id,
+                  onTap: () {
+                    final onSelected = onItemSelected;
+                    if (onSelected != null) {
+                      onSelected(visibleItems[index]);
+                    } else {
+                      openMediaSummary(context, ref, visibleItems[index]);
+                    }
+                  },
+                ),
                 if (index < visibleItems.length - 1)
                   Divider(color: palette.border.withAlpha(120), height: 20),
               ],
@@ -784,14 +1040,21 @@ class _BrowseTile extends ConsumerWidget {
   }
 }
 
-class _SearchResultTile extends ConsumerWidget {
-  const _SearchResultTile({required this.item});
+class _SearchResultTile extends StatelessWidget {
+  const _SearchResultTile({
+    required this.item,
+    required this.isLoading,
+    required this.onTap,
+  });
 
   final MediaSummary item;
+  final bool isLoading;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     return ListTile(
+      enabled: !isLoading,
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(14),
         child: SizedBox(
@@ -809,9 +1072,18 @@ class _SearchResultTile extends ConsumerWidget {
         ),
       ),
       title: Text(item.title),
-      subtitle: Text(item.artistText ?? item.subtitle ?? item.type.name),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: () => openMediaSummary(context, ref, item),
+      subtitle: Text(
+        isLoading
+            ? 'Preparing queue...'
+            : item.artistText ?? item.subtitle ?? item.type.name,
+      ),
+      trailing: isLoading
+          ? const SizedBox.square(
+              dimension: 24,
+              child: CircularProgressIndicator(strokeWidth: 2.2),
+            )
+          : const Icon(Icons.chevron_right_rounded),
+      onTap: isLoading ? null : onTap,
     );
   }
 }

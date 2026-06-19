@@ -140,7 +140,7 @@ class MiniPlayer extends ConsumerWidget {
                             ),
                           ),
                           FilledButton.tonal(
-                            onPressed: controlsLocked
+                            onPressed: controlsLocked || snapshot.isResuming
                                 ? null
                                 : controller.togglePlayPause,
                             style: FilledButton.styleFrom(
@@ -157,11 +157,18 @@ class MiniPlayer extends ConsumerWidget {
                                 ),
                               ),
                             ),
-                            child: Icon(
-                              snapshot.isPlaying
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                            ),
+                            child: snapshot.isResuming
+                                ? const SizedBox.square(
+                                    dimension: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.2,
+                                    ),
+                                  )
+                                : Icon(
+                                    snapshot.isPlaying
+                                        ? Icons.pause_rounded
+                                        : Icons.play_arrow_rounded,
+                                  ),
                           ),
                           IconButton(
                             onPressed: controlsLocked

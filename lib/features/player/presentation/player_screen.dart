@@ -179,19 +179,24 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                     icon: const Icon(Icons.skip_previous_rounded),
                   ),
                   FilledButton(
-                    onPressed: controlsLocked
+                    onPressed: controlsLocked || snapshot.isResuming
                         ? null
                         : controller.togglePlayPause,
                     style: FilledButton.styleFrom(
                       minimumSize: const Size(76, 76),
                       shape: const CircleBorder(),
                     ),
-                    child: Icon(
-                      snapshot.isPlaying
-                          ? Icons.pause_rounded
-                          : Icons.play_arrow_rounded,
-                      size: 38,
-                    ),
+                    child: snapshot.isResuming
+                        ? const SizedBox.square(
+                            dimension: 30,
+                            child: CircularProgressIndicator(strokeWidth: 3),
+                          )
+                        : Icon(
+                            snapshot.isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            size: 38,
+                          ),
                   ),
                   IconButton(
                     onPressed: controlsLocked ? null : controller.skipNext,

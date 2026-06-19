@@ -11,6 +11,7 @@ class PlaybackSnapshot {
     this.duration,
     this.isPlaying = false,
     this.isBuffering = false,
+    this.isResuming = false,
     this.loopMode = LoopMode.off,
     this.shuffleEnabled = false,
     this.error,
@@ -23,6 +24,7 @@ class PlaybackSnapshot {
   final Duration? duration;
   final bool isPlaying;
   final bool isBuffering;
+  final bool isResuming;
   final LoopMode loopMode;
   final bool shuffleEnabled;
   final String? error;
@@ -42,6 +44,7 @@ class PlaybackSnapshot {
     Duration? duration,
     bool? isPlaying,
     bool? isBuffering,
+    bool? isResuming,
     LoopMode? loopMode,
     bool? shuffleEnabled,
     String? error,
@@ -55,6 +58,7 @@ class PlaybackSnapshot {
       duration: duration ?? this.duration,
       isPlaying: isPlaying ?? this.isPlaying,
       isBuffering: isBuffering ?? this.isBuffering,
+      isResuming: isResuming ?? this.isResuming,
       loopMode: loopMode ?? this.loopMode,
       shuffleEnabled: shuffleEnabled ?? this.shuffleEnabled,
       error: clearError ? null : (error ?? this.error),

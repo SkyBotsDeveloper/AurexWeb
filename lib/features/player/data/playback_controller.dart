@@ -32,6 +32,8 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
   return controller;
 });
 
+enum _AurexResumeRefreshResult { notNeeded, refreshed, failed }
+
 class PlaybackController {
   PlaybackController(
     this._ref,
@@ -55,7 +57,7 @@ class PlaybackController {
   Future<void> _queueOperation = Future.value();
   int _queueRequestVersion = 0;
   DateTime? _pausedAt;
-  bool _refreshingAurexPlayback = false;
+  Future<void>? _resumeOperation;
   final Map<String, DateTime> _aurexStreamResolvedAt = {};
 
   static const _queueKey = 'playback.queue';
@@ -76,6 +78,7 @@ class PlaybackController {
   Future<void> setQueue(
     List<Track> queue, {
     int initialIndex = 0,
+    String? initialTrackId,
     Duration initialPosition = Duration.zero,
     bool autoplay = true,
     bool bypassRoomLock = false,
@@ -95,6 +98,7 @@ class PlaybackController {
           (_) => _performSetQueue(
             queue,
             initialIndex: initialIndex,
+            initialTrackId: initialTrackId,
             initialPosition: initialPosition,
             autoplay: autoplay,
             forceAurexRefreshIndex: forceAurexRefreshIndex,
@@ -107,6 +111,7 @@ class PlaybackController {
   Future<void> _performSetQueue(
     List<Track> queue, {
     required int initialIndex,
+    String? initialTrackId,
     required Duration initialPosition,
     required bool autoplay,
     int? forceAurexRefreshIndex,
@@ -123,10 +128,23 @@ class PlaybackController {
 
     for (var sourceIndex = 0; sourceIndex < queue.length; sourceIndex++) {
       final track = queue[sourceIndex];
-      final uri = await _resolveTrackUri(
-        track,
-        forceAurexRefresh: sourceIndex == forceAurexRefreshIndex,
-      );
+      Uri? uri;
+      try {
+        uri = await _resolveTrackUri(
+          track,
+          forceAurexRefresh: sourceIndex == forceAurexRefreshIndex,
+        );
+      } catch (error, stackTrace) {
+        if (initialTrackId == null || track.id == initialTrackId) {
+          rethrow;
+        }
+        AppLogger.instance.w(
+          'Skipping related queue track after source resolution failed',
+          error: error,
+          stackTrace: stackTrace,
+        );
+        continue;
+      }
       if (uri == null) {
         AppLogger.instance.w(
           'Skipping unplayable track because no audio source was resolved',
@@ -135,21 +153,7 @@ class PlaybackController {
         continue;
       }
       playableTracks.add(track);
-      sources.add(
-        AudioSource.uri(
-          uri,
-          tag: MediaItem(
-            id: track.id,
-            title: track.title,
-            album: track.albumName,
-            artist: track.artistNames,
-            artUri: track.artworkUrl == null
-                ? null
-                : Uri.tryParse(track.artworkUrl!),
-            duration: track.duration,
-          ),
-        ),
-      );
+      sources.add(_audioSourceForTrack(track, uri));
     }
 
     if (requestVersion != _queueRequestVersion) {
@@ -162,7 +166,18 @@ class PlaybackController {
       );
     }
 
-    final safeIndex = initialIndex.clamp(0, playableTracks.length - 1);
+    var safeIndex = initialIndex.clamp(0, playableTracks.length - 1);
+    if (initialTrackId != null) {
+      final selectedIndex = playableTracks.indexWhere(
+        (track) => track.id == initialTrackId,
+      );
+      if (selectedIndex < 0) {
+        throw StateError(
+          'The selected song is not playable right now. Please try another result.',
+        );
+      }
+      safeIndex = selectedIndex;
+    }
     AppLogger.instance.i(
       'Replacing playback queue with ${playableTracks.length} track(s); '
       'index=$safeIndex; autoplay=$autoplay; uri=${sources[safeIndex].sequence.first.tag is MediaItem ? (sources[safeIndex].sequence.first.tag as MediaItem).id : playableTracks[safeIndex].id}',
@@ -196,13 +211,20 @@ class PlaybackController {
       clearError: true,
     );
 
-    await _persistSession();
     if (autoplay) {
-      await _playPreparedQueue(
+      final started = await _playPreparedQueue(
         initialPosition: initialPosition,
         requestVersion: requestVersion,
       );
+      if (requestVersion != _queueRequestVersion) {
+        return;
+      }
+      notifier.value = notifier.value.copyWith(
+        isPlaying: started,
+        isBuffering: started ? notifier.value.isBuffering : false,
+      );
     }
+    await _persistSession();
   }
 
   Future<void> _resetPlaybackForReplacement() async {
@@ -214,7 +236,7 @@ class PlaybackController {
     await _player.stop();
   }
 
-  Future<void> _playPreparedQueue({
+  Future<bool> _playPreparedQueue({
     required Duration initialPosition,
     required int requestVersion,
   }) async {
@@ -236,6 +258,7 @@ class PlaybackController {
         'Playback did not start after retries for requestVersion=$requestVersion',
       );
     }
+    return started;
   }
 
   Future<bool> _ensurePlaybackStarted({
@@ -248,6 +271,9 @@ class PlaybackController {
         return false;
       }
       if (_player.playing) {
+        AppLogger.instance.d(
+          'Playback start confirmed before retry for requestVersion=$requestVersion',
+        );
         return true;
       }
       if (attempt > 0) {
@@ -262,6 +288,10 @@ class PlaybackController {
         requestVersion: requestVersion,
       );
       if (started) {
+        AppLogger.instance.i(
+          'Playback start confirmed for requestVersion=$requestVersion '
+          'at ${_player.position.inMilliseconds}ms',
+        );
         return true;
       }
       await Future<void>.delayed(const Duration(milliseconds: 180));
@@ -311,17 +341,250 @@ class PlaybackController {
     if (!_canControl(bypassRoomLock)) {
       return;
     }
+
+    final activeResume = _resumeOperation;
+    if (activeResume != null) {
+      AppLogger.instance.d('Ignoring repeated play tap while resume is active');
+      await activeResume;
+      return;
+    }
+
     if (_player.playing) {
-      _pausedAt = DateTime.now();
+      final requestedPosition = _player.position;
+      AppLogger.instance.i(
+        'Pausing playback at ${requestedPosition.inMilliseconds}ms',
+      );
       await _player.pause();
+      final pausedPosition = _player.position;
+      _pausedAt = DateTime.now();
+      notifier.value = notifier.value.copyWith(
+        position: pausedPosition,
+        isPlaying: false,
+        isBuffering: false,
+        isResuming: false,
+      );
+      AppLogger.instance.i(
+        'Playback pause confirmed at ${pausedPosition.inMilliseconds}ms',
+      );
+      await _persistSession();
     } else {
-      if (await _refreshCurrentAurexSourceForResume()) {
-        await _persistSession();
-        return;
+      await _runResumeOperation(reason: 'user');
+    }
+  }
+
+  Future<void> _runResumeOperation({
+    required String reason,
+    bool forceAurexRefresh = false,
+  }) async {
+    final activeResume = _resumeOperation;
+    if (activeResume != null) {
+      AppLogger.instance.d(
+        'Joining active resume operation instead of starting another; '
+        'reason=$reason',
+      );
+      await activeResume;
+      return;
+    }
+
+    final operation = _resumePlayback(
+      reason: reason,
+      forceAurexRefresh: forceAurexRefresh,
+    );
+    _resumeOperation = operation;
+    try {
+      await operation;
+    } catch (error, stackTrace) {
+      notifier.value = notifier.value.copyWith(
+        isPlaying: false,
+        isBuffering: false,
+        error: friendlyErrorMessage(
+          error,
+          fallback: 'Could not resume this song. Please try again.',
+        ),
+      );
+      AppLogger.instance.e(
+        'Guarded playback resume threw an unexpected error; reason=$reason',
+        error: error,
+        stackTrace: stackTrace,
+      );
+      await _persistSession();
+    } finally {
+      if (identical(_resumeOperation, operation)) {
+        _resumeOperation = null;
+        notifier.value = notifier.value.copyWith(isResuming: false);
       }
-      _launchPlayRequest();
+    }
+  }
+
+  Future<void> _resumePlayback({
+    required String reason,
+    required bool forceAurexRefresh,
+  }) async {
+    final resumePosition = _player.position;
+    final requestVersion = _queueRequestVersion;
+    final currentTrack = snapshot.currentTrack;
+    notifier.value = notifier.value.copyWith(
+      isResuming: true,
+      clearError: true,
+    );
+    AppLogger.instance.i(
+      'Starting guarded playback resume; reason=$reason; '
+      'track=${currentTrack?.id ?? 'none'}; '
+      'positionMs=${resumePosition.inMilliseconds}; '
+      'requestVersion=$requestVersion',
+    );
+
+    var refreshResult = await _refreshCurrentAurexSourceForResume(
+      force: forceAurexRefresh,
+      resumePosition: resumePosition,
+    );
+    var started = refreshResult == _AurexResumeRefreshResult.refreshed
+        ? _player.playing
+        : false;
+
+    if (refreshResult == _AurexResumeRefreshResult.notNeeded) {
+      started = await _ensurePlaybackStarted(
+        requestVersion: requestVersion,
+        initialPosition: resumePosition,
+      );
+
+      if (!started && currentTrack?.isAurexSource == true) {
+        AppLogger.instance.w(
+          'Aurex resume did not start with the current source; '
+          'forcing one stream refresh',
+        );
+        refreshResult = await _refreshCurrentAurexSourceForResume(
+          force: true,
+          resumePosition: resumePosition,
+        );
+        started =
+            refreshResult == _AurexResumeRefreshResult.refreshed &&
+            _player.playing;
+      }
+    }
+
+    if (started) {
+      _pausedAt = null;
+      notifier.value = notifier.value.copyWith(
+        position: _player.position,
+        isPlaying: true,
+        clearError: true,
+      );
+      AppLogger.instance.i(
+        'Guarded playback resume confirmed; reason=$reason; '
+        'positionMs=${_player.position.inMilliseconds}; '
+        'processing=${_player.processingState.name}',
+      );
+    } else {
+      notifier.value = notifier.value.copyWith(
+        isPlaying: false,
+        isBuffering: false,
+        error: 'Could not resume this song. Please try again.',
+      );
+      AppLogger.instance.w(
+        'Guarded playback resume failed; reason=$reason; '
+        'refreshResult=${refreshResult.name}; '
+        'processing=${_player.processingState.name}',
+      );
     }
     await _persistSession();
+  }
+
+  Future<void> appendToQueue(
+    List<Track> tracks, {
+    required String expectedCurrentTrackId,
+    bool bypassRoomLock = false,
+  }) async {
+    if (!_canControl(bypassRoomLock) || tracks.isEmpty) {
+      return;
+    }
+
+    final requestVersion = _queueRequestVersion;
+    _queueOperation = _queueOperation
+        .catchError((_) {})
+        .then(
+          (_) => _performAppendToQueue(
+            tracks,
+            expectedCurrentTrackId: expectedCurrentTrackId,
+            requestVersion: requestVersion,
+          ),
+        );
+    await _queueOperation;
+  }
+
+  Future<void> _performAppendToQueue(
+    List<Track> tracks, {
+    required String expectedCurrentTrackId,
+    required int requestVersion,
+  }) async {
+    if (requestVersion != _queueRequestVersion ||
+        snapshot.currentTrack?.id != expectedCurrentTrackId) {
+      return;
+    }
+
+    final existingIds = snapshot.queue.map((track) => track.id).toSet();
+    final appendedIds = <String>{};
+    final playableTracks = <Track>[];
+    final sources = <AudioSource>[];
+
+    for (final track in tracks) {
+      if (existingIds.contains(track.id) || !appendedIds.add(track.id)) {
+        continue;
+      }
+      if (requestVersion != _queueRequestVersion ||
+          snapshot.currentTrack?.id != expectedCurrentTrackId) {
+        return;
+      }
+      try {
+        final uri = await _resolveTrackUri(track);
+        if (uri == null) {
+          continue;
+        }
+        playableTracks.add(track);
+        sources.add(_audioSourceForTrack(track, uri));
+      } catch (error, stackTrace) {
+        AppLogger.instance.w(
+          'Skipping unplayable search queue suggestion',
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
+    }
+
+    if (sources.isEmpty ||
+        requestVersion != _queueRequestVersion ||
+        snapshot.currentTrack?.id != expectedCurrentTrackId) {
+      return;
+    }
+
+    await _player.addAudioSources(sources);
+    if (requestVersion != _queueRequestVersion) {
+      return;
+    }
+    notifier.value = notifier.value.copyWith(
+      queue: List.unmodifiable([...snapshot.queue, ...playableTracks]),
+    );
+    AppLogger.instance.i(
+      'Appended ${playableTracks.length} search suggestion(s) to queue; '
+      'anchor=$expectedCurrentTrackId',
+    );
+    await _persistSession();
+  }
+
+  AudioSource _audioSourceForTrack(Track track, Uri uri) {
+    return AudioSource.uri(
+      uri,
+      tag: MediaItem(
+        id: track.id,
+        title: track.title,
+        album: track.albumName,
+        artist: track.artistNames,
+        artUri: track.artworkUrl == null
+            ? null
+            : Uri.tryParse(track.artworkUrl!),
+        duration: track.duration,
+      ),
+    );
   }
 
   Future<void> playAtIndex(int index, {bool bypassRoomLock = false}) async {
@@ -457,8 +720,6 @@ class PlaybackController {
       _player.playerStateStream.listen((state) {
         if (state.playing) {
           _pausedAt = null;
-        } else if (!_player.playing && _pausedAt == null) {
-          _pausedAt = DateTime.now();
         }
         AppLogger.instance.d(
           'Player state changed: playing=${state.playing}, '
@@ -486,6 +747,10 @@ class PlaybackController {
     );
     _subscriptions.add(
       _player.errorStream.listen((error) {
+        final playbackWasExpected =
+            notifier.value.isPlaying ||
+            notifier.value.isResuming ||
+            _player.playing;
         AppLogger.instance.e(
           'Playback engine error: ${error.message}',
           error: error,
@@ -494,8 +759,13 @@ class PlaybackController {
           error: 'Playback stopped unexpectedly. Please retry this track.',
         );
         final track = notifier.value.currentTrack;
-        if (track != null && track.isAurexSource) {
-          unawaited(_refreshCurrentAurexSourceForResume(force: true));
+        if (track != null && track.isAurexSource && playbackWasExpected) {
+          unawaited(
+            _runResumeOperation(
+              reason: 'aurex-engine-error',
+              forceAurexRefresh: true,
+            ),
+          );
         }
       }),
     );
@@ -524,7 +794,7 @@ class PlaybackController {
       bypassRoomLock: true,
     );
     if (playing) {
-      _launchPlayRequest();
+      await _runResumeOperation(reason: 'session-restore');
     }
   }
 
@@ -541,23 +811,23 @@ class PlaybackController {
     await _prefs.setBool(_playingKey, snapshot.isPlaying);
   }
 
-  Future<bool> _refreshCurrentAurexSourceForResume({bool force = false}) async {
-    if (_refreshingAurexPlayback) {
-      return true;
-    }
+  Future<_AurexResumeRefreshResult> _refreshCurrentAurexSourceForResume({
+    bool force = false,
+    required Duration resumePosition,
+  }) async {
     final queue = snapshot.queue;
     if (queue.isEmpty) {
-      return false;
+      return _AurexResumeRefreshResult.notNeeded;
     }
     final currentIndex = snapshot.currentIndex ?? _player.currentIndex;
     if (currentIndex == null ||
         currentIndex < 0 ||
         currentIndex >= queue.length) {
-      return false;
+      return _AurexResumeRefreshResult.notNeeded;
     }
     final currentTrack = queue[currentIndex];
     if (!currentTrack.isAurexSource) {
-      return false;
+      return _AurexResumeRefreshResult.notNeeded;
     }
 
     final shouldRefresh =
@@ -566,15 +836,14 @@ class PlaybackController {
         (_pausedAt != null &&
             DateTime.now().difference(_pausedAt!) >= _aurexResumeRefreshAfter);
     if (!shouldRefresh) {
-      return false;
+      return _AurexResumeRefreshResult.notNeeded;
     }
 
-    _refreshingAurexPlayback = true;
     try {
-      final resumePosition = _player.position;
       AppLogger.instance.i(
         'Refreshing Aurex stream before resume for ${currentTrack.id} '
-        'at ${resumePosition.inMilliseconds}ms',
+        'at ${resumePosition.inMilliseconds}ms; index=$currentIndex; '
+        'queueLength=${queue.length}; force=$force',
       );
       await setQueue(
         queue,
@@ -584,7 +853,17 @@ class PlaybackController {
         bypassRoomLock: true,
         forceAurexRefreshIndex: currentIndex,
       );
-      return true;
+      if (!_player.playing) {
+        AppLogger.instance.w(
+          'Aurex stream refresh completed but playback was not confirmed',
+        );
+        return _AurexResumeRefreshResult.failed;
+      }
+      AppLogger.instance.i(
+        'Aurex stream refresh and resume confirmed for ${currentTrack.id} '
+        'at ${_player.position.inMilliseconds}ms',
+      );
+      return _AurexResumeRefreshResult.refreshed;
     } catch (error, stackTrace) {
       AppLogger.instance.e(
         'Failed to refresh Aurex stream before resume',
@@ -597,9 +876,7 @@ class PlaybackController {
           fallback: 'Could not resume this song. Please try again.',
         ),
       );
-      return false;
-    } finally {
-      _refreshingAurexPlayback = false;
+      return _AurexResumeRefreshResult.failed;
     }
   }
 
