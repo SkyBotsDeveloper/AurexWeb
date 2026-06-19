@@ -17,6 +17,7 @@ import '../../library/data/library_repository.dart';
 import '../../music/domain/music_models.dart';
 import '../../rooms/data/room_session_controller.dart';
 import '../../settings/data/settings_repository.dart';
+import 'aurex_audio_cache_repository.dart';
 import 'playback_models.dart';
 
 final playbackControllerProvider = Provider<PlaybackController>((ref) {
@@ -25,6 +26,7 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
     ref.watch(sharedPreferencesProvider),
     ref.watch(libraryRepositoryProvider),
     ref.watch(settingsRepositoryProvider),
+    ref.watch(aurexAudioCacheRepositoryProvider),
   );
   ref.onDispose(() {
     unawaited(controller.dispose());
@@ -40,6 +42,7 @@ class PlaybackController {
     this._prefs,
     this._libraryRepository,
     this._settingsRepository,
+    this._aurexAudioCacheRepository,
   ) : _player = AudioPlayer() {
     _bindPlayer();
     unawaited(_restoreSession());
@@ -49,6 +52,7 @@ class PlaybackController {
   final SharedPreferences _prefs;
   final LibraryRepository _libraryRepository;
   final SettingsRepository _settingsRepository;
+  final AurexAudioCacheRepository _aurexAudioCacheRepository;
   final AudioPlayer _player;
   final ValueNotifier<PlaybackSnapshot> notifier = ValueNotifier(
     const PlaybackSnapshot(),
@@ -125,6 +129,7 @@ class PlaybackController {
 
     final sources = <AudioSource>[];
     final playableTracks = <Track>[];
+    final resolvedUris = <Uri>[];
 
     for (var sourceIndex = 0; sourceIndex < queue.length; sourceIndex++) {
       final track = queue[sourceIndex];
@@ -153,6 +158,7 @@ class PlaybackController {
         continue;
       }
       playableTracks.add(track);
+      resolvedUris.add(uri);
       sources.add(_audioSourceForTrack(track, uri));
     }
 
@@ -223,6 +229,12 @@ class PlaybackController {
         isPlaying: started,
         isBuffering: started ? notifier.value.isBuffering : false,
       );
+      if (started) {
+        _cacheSelectedAurexTrack(
+          playableTracks[safeIndex],
+          resolvedUris[safeIndex],
+        );
+      }
     }
     await _persistSession();
   }
@@ -618,6 +630,13 @@ class PlaybackController {
       clearError: true,
     );
     _launchPlayRequest();
+    final selectedUri = targetTrack.bestAudioUrl(AudioQuality.kbps160);
+    if (selectedUri != null) {
+      final parsedUri = Uri.tryParse(selectedUri);
+      if (parsedUri != null) {
+        _cacheSelectedAurexTrack(targetTrack, parsedUri);
+      }
+    }
     await _persistSession();
   }
 
@@ -896,6 +915,11 @@ class PlaybackController {
     bool forceAurexRefresh = false,
   }) async {
     if (track.isAurexSource) {
+      final cachedUri = await _aurexAudioCacheRepository.getCachedUri(track);
+      if (cachedUri != null) {
+        _aurexStreamResolvedAt[track.id] = DateTime.now();
+        return cachedUri;
+      }
       final inMemoryUrl = forceAurexRefresh
           ? null
           : track.bestAudioUrl(AudioQuality.kbps160);
@@ -935,6 +959,13 @@ class PlaybackController {
       'at quality=${effectiveQuality.key}: ${url ?? 'none'}',
     );
     return url == null ? null : Uri.parse(url);
+  }
+
+  void _cacheSelectedAurexTrack(Track track, Uri sourceUri) {
+    if (!track.isAurexSource || sourceUri.scheme == 'file') {
+      return;
+    }
+    unawaited(_aurexAudioCacheRepository.cacheResolvedTrack(track, sourceUri));
   }
 
   Future<void> _ensureNotificationPermission() async {

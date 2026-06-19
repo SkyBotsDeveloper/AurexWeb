@@ -15,4 +15,12 @@ class AppPaths {
     final dir = await getApplicationSupportDirectory();
     return p.join(dir.path, 'downloads');
   }
+
+  static Future<String?> aurexAudioCacheDirectoryPath() async {
+    if (kIsWeb) {
+      return null;
+    }
+    final dir = await getApplicationSupportDirectory();
+    return p.join(dir.path, 'aurex_audio_cache');
+  }
 }
