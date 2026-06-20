@@ -805,16 +805,70 @@ class PlaybackController {
     final index = _prefs.getInt(_indexKey) ?? 0;
     final positionMs = _prefs.getInt(_positionKey) ?? 0;
     final playing = _prefs.getBool(_playingKey) ?? false;
+    try {
+      await _restoreQueueState(queue, index, positionMs, playing);
+    } catch (error, stackTrace) {
+      if (queue.isNotEmpty) {
+        final safeIndex = index.clamp(0, queue.length - 1);
+        if (queue[safeIndex].isAurexSource) {
+          AppLogger.instance.w(
+            'Retrying Aurex session restore after source load failed',
+            error: error,
+            stackTrace: stackTrace,
+          );
+          try {
+            await _restoreQueueState(
+              queue,
+              safeIndex,
+              positionMs,
+              playing,
+              forceAurexRefreshIndex: safeIndex,
+            );
+            return;
+          } catch (retryError, retryStackTrace) {
+            _reportSessionRestoreFailure(retryError, retryStackTrace);
+            return;
+          }
+        }
+      }
+      _reportSessionRestoreFailure(error, stackTrace);
+    }
+  }
+
+  Future<void> _restoreQueueState(
+    List<Track> queue,
+    int index,
+    int positionMs,
+    bool playing, {
+    int? forceAurexRefreshIndex,
+  }) async {
     await setQueue(
       queue,
       initialIndex: index,
       initialPosition: Duration(milliseconds: positionMs),
       autoplay: false,
       bypassRoomLock: true,
+      forceAurexRefreshIndex: forceAurexRefreshIndex,
     );
     if (playing) {
       await _runResumeOperation(reason: 'session-restore');
     }
+  }
+
+  void _reportSessionRestoreFailure(Object error, StackTrace stackTrace) {
+    AppLogger.instance.e(
+      'Failed to restore the previous playback session',
+      error: error,
+      stackTrace: stackTrace,
+    );
+    notifier.value = notifier.value.copyWith(
+      isPlaying: false,
+      isBuffering: false,
+      error: friendlyErrorMessage(
+        error,
+        fallback: 'Could not restore the previous song. Please play it again.',
+      ),
+    );
   }
 
   Future<void> _persistSession() async {
