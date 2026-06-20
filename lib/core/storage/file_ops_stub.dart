@@ -2,6 +2,8 @@ Future<bool> fileExists(String path) async => false;
 
 Future<int?> fileLength(String path) async => null;
 
+Future<List<String>> listFiles(String path) async => const [];
+
 Future<void> ensureDirectory(String path) async {
   throw UnsupportedError('Local file operations are not supported on web.');
 }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -54,6 +56,8 @@ class AurexAudioCacheRecord {
   final DateTime lastUsedAt;
   final DateTime expiresAt;
   final int playCount;
+
+  bool get isHot => playCount >= AurexAudioCacheRepository.hotPlayCount;
 
   factory AurexAudioCacheRecord.fromJson(Map<String, dynamic> json) {
     return AurexAudioCacheRecord(
@@ -112,16 +116,28 @@ class AurexAudioCacheRepository {
     this._dio,
     this._logger, {
     Future<String?> Function()? cacheDirectoryPath,
+    this.maxCacheSizeBytes = defaultMaxCacheSizeBytes,
+    this.cleanupThrottle = const Duration(hours: 3),
+    DateTime Function()? clock,
   }) : _cacheDirectoryPath =
-           cacheDirectoryPath ?? AppPaths.aurexAudioCacheDirectoryPath;
+           cacheDirectoryPath ?? AppPaths.aurexAudioCacheDirectoryPath,
+       _clock = clock ?? DateTime.now;
 
   final Database _database;
   final Dio _dio;
   final Logger _logger;
   final Future<String?> Function() _cacheDirectoryPath;
+  final int maxCacheSizeBytes;
+  final Duration cleanupThrottle;
+  final DateTime Function() _clock;
   final Map<String, Future<void>> _activeDownloads = {};
+  Future<void>? _cleanupOperation;
+  DateTime? _lastCleanupAt;
 
   static const cacheLifetime = Duration(hours: 48);
+  static const hotCacheLifetime = Duration(days: 14);
+  static const hotPlayCount = 5;
+  static const defaultMaxCacheSizeBytes = 500 * 1024 * 1024;
   static final _store = stringMapStoreFactory.store('aurex_audio_cache');
 
   Future<AurexAudioCacheRecord?> getRecord(String videoId) async {
@@ -161,7 +177,7 @@ class AurexAudioCacheRepository {
       return null;
     }
 
-    final now = DateTime.now();
+    final now = _clock();
     final actualSize = await fileLength(record.localFilePath);
     final isInvalid =
         now.isAfter(record.expiresAt) ||
@@ -173,13 +189,56 @@ class AurexAudioCacheRepository {
       return null;
     }
 
+    final playCount = record.playCount + 1;
     final updated = record.copyWith(
       lastUsedAt: now,
-      expiresAt: now.add(cacheLifetime),
-      playCount: record.playCount + 1,
+      expiresAt: now.add(
+        playCount >= hotPlayCount ? hotCacheLifetime : cacheLifetime,
+      ),
+      playCount: playCount,
     );
     await upsert(updated);
+    _scheduleCleanup(protectedFilePath: updated.localFilePath);
     return Uri.file(record.localFilePath);
+  }
+
+  Future<void> cleanupCache({
+    String? protectedFilePath,
+    bool force = false,
+  }) async {
+    if (kIsWeb) {
+      return;
+    }
+    final activeCleanup = _cleanupOperation;
+    if (activeCleanup != null) {
+      await activeCleanup;
+      if (force) {
+        await Future<void>.delayed(Duration.zero);
+        await cleanupCache(protectedFilePath: protectedFilePath, force: true);
+      }
+      return;
+    }
+
+    final now = _clock();
+    if (!force &&
+        _lastCleanupAt != null &&
+        now.difference(_lastCleanupAt!) < cleanupThrottle) {
+      return;
+    }
+    _lastCleanupAt = now;
+
+    final operation = _performCleanup(
+      now: now,
+      protectedFilePath: protectedFilePath,
+    );
+    _cleanupOperation = operation;
+    try {
+      await operation;
+    } on Object catch (error) {
+      _logger.d('Aurex audio cache cleanup skipped: $error');
+    } finally {
+      _cleanupOperation = null;
+    }
   }
 
   Future<void> cacheResolvedTrack(Track track, Uri sourceUri) async {
@@ -234,7 +293,7 @@ class AurexAudioCacheRepository {
     }
     await ensureDirectory(cacheDirectory);
 
-    final safeVideoId = videoId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+    final safeVideoId = _safeVideoId(videoId);
     if (safeVideoId.isEmpty) {
       return;
     }
@@ -255,7 +314,7 @@ class AurexAudioCacheRepository {
         throw StateError('Completed cache file was unavailable.');
       }
 
-      final now = DateTime.now();
+      final now = _clock();
       await upsert(
         AurexAudioCacheRecord(
           videoId: videoId,
@@ -272,12 +331,97 @@ class AurexAudioCacheRepository {
         ),
       );
       metadataSaved = true;
+      _scheduleCleanup(protectedFilePath: targetPath, force: true);
     } finally {
       await deleteFileIfExists(partialPath);
       if (!metadataSaved) {
         await deleteFileIfExists(targetPath);
       }
     }
+  }
+
+  Future<void> _performCleanup({
+    required DateTime now,
+    required String? protectedFilePath,
+  }) async {
+    final cacheDirectory = await _cacheDirectoryPath();
+    if (cacheDirectory == null) {
+      return;
+    }
+
+    final validEntries = <_CacheEntry>[];
+    var totalBytes = 0;
+    final snapshots = await _store.find(_database);
+    for (final snapshot in snapshots) {
+      AurexAudioCacheRecord record;
+      try {
+        record = AurexAudioCacheRecord.fromJson(snapshot.value);
+      } on Object {
+        await snapshot.ref.delete(_database);
+        continue;
+      }
+
+      if (!_isInsideCacheDirectory(record.localFilePath, cacheDirectory)) {
+        await snapshot.ref.delete(_database);
+        continue;
+      }
+      final isProtected = _pathsEqual(record.localFilePath, protectedFilePath);
+      final actualSize = await fileLength(record.localFilePath);
+      final isInvalid =
+          now.isAfter(record.expiresAt) ||
+          actualSize == null ||
+          actualSize <= 0 ||
+          actualSize != record.fileSizeBytes;
+      if (isInvalid && !isProtected) {
+        await _removeRecordAndFile(record, cacheDirectory);
+        continue;
+      }
+      if (actualSize != null && actualSize > 0) {
+        validEntries.add(_CacheEntry(record, actualSize));
+        totalBytes += actualSize;
+      }
+    }
+
+    final activePartialPaths = _activeDownloads.keys
+        .map(
+          (videoId) =>
+              p.join(cacheDirectory, '${_safeVideoId(videoId)}.mp3.part'),
+        )
+        .map(p.normalize)
+        .toSet();
+    for (final filePath in await listFiles(cacheDirectory)) {
+      if (filePath.endsWith('.part') &&
+          !activePartialPaths.contains(p.normalize(filePath))) {
+        await deleteFileIfExists(filePath);
+      }
+    }
+
+    if (totalBytes <= maxCacheSizeBytes || protectedFilePath == null) {
+      return;
+    }
+
+    final nonHot = validEntries.where((entry) => !entry.record.isHot).toList()
+      ..sort(_compareLastUsed);
+    final hot = validEntries.where((entry) => entry.record.isHot).toList()
+      ..sort(_compareLastUsed);
+    for (final entry in [...nonHot, ...hot]) {
+      if (totalBytes <= maxCacheSizeBytes) {
+        break;
+      }
+      if (_pathsEqual(entry.record.localFilePath, protectedFilePath)) {
+        continue;
+      }
+      await _removeRecordAndFile(entry.record, cacheDirectory);
+      totalBytes -= entry.fileSizeBytes;
+    }
+  }
+
+  int _compareLastUsed(_CacheEntry left, _CacheEntry right) {
+    return left.record.lastUsedAt.compareTo(right.record.lastUsedAt);
+  }
+
+  void _scheduleCleanup({String? protectedFilePath, bool force = false}) {
+    unawaited(cleanupCache(protectedFilePath: protectedFilePath, force: force));
   }
 
   Future<void> _removeRecordAndFile(
@@ -295,4 +439,23 @@ class AurexAudioCacheRepository {
     final normalizedDirectory = p.normalize(p.absolute(cacheDirectory));
     return p.isWithin(normalizedDirectory, normalizedFile);
   }
+
+  bool _pathsEqual(String filePath, String? otherPath) {
+    if (otherPath == null) {
+      return false;
+    }
+    return p.normalize(p.absolute(filePath)) ==
+        p.normalize(p.absolute(otherPath));
+  }
+
+  String _safeVideoId(String videoId) {
+    return videoId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+  }
+}
+
+class _CacheEntry {
+  const _CacheEntry(this.record, this.fileSizeBytes);
+
+  final AurexAudioCacheRecord record;
+  final int fileSizeBytes;
 }

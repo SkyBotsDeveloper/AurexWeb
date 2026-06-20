@@ -10,6 +10,18 @@ Future<int?> fileLength(String path) async {
   return file.length();
 }
 
+Future<List<String>> listFiles(String path) async {
+  final directory = Directory(path);
+  if (!await directory.exists()) {
+    return const [];
+  }
+  return directory
+      .list()
+      .where((entry) => entry is File)
+      .map((entry) => entry.path)
+      .toList();
+}
+
 Future<void> ensureDirectory(String path) async {
   await Directory(path).create(recursive: true);
 }
