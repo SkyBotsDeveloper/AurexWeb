@@ -813,6 +813,10 @@ class PlaybackController {
         final track = notifier.value.currentTrack;
         if (track != null) {
           await _libraryRepository.addToHistory(track);
+          final currentSource = _player.sequenceState.currentSource;
+          if (currentSource is UriAudioSource) {
+            _cacheSelectedAurexTrack(track, currentSource.uri);
+          }
         }
         await _persistSession();
         _scheduleAutoplayExtension();
