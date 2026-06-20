@@ -36,6 +36,7 @@ class AppSettings {
     required this.autoQuality,
     required this.rememberQueue,
     required this.autoResyncRooms,
+    required this.smartCacheEnabled,
   });
 
   final AppThemePreference themePreference;
@@ -45,6 +46,7 @@ class AppSettings {
   final bool autoQuality;
   final bool rememberQueue;
   final bool autoResyncRooms;
+  final bool smartCacheEnabled;
 
   AppSettings copyWith({
     AppThemePreference? themePreference,
@@ -54,6 +56,7 @@ class AppSettings {
     bool? autoQuality,
     bool? rememberQueue,
     bool? autoResyncRooms,
+    bool? smartCacheEnabled,
   }) {
     return AppSettings(
       themePreference: themePreference ?? this.themePreference,
@@ -63,6 +66,7 @@ class AppSettings {
       autoQuality: autoQuality ?? this.autoQuality,
       rememberQueue: rememberQueue ?? this.rememberQueue,
       autoResyncRooms: autoResyncRooms ?? this.autoResyncRooms,
+      smartCacheEnabled: smartCacheEnabled ?? this.smartCacheEnabled,
     );
   }
 }
@@ -87,6 +91,7 @@ class SettingsRepository {
           autoQuality: _prefs.getBool(_autoQualityKey) ?? true,
           rememberQueue: _prefs.getBool(_rememberQueueKey) ?? true,
           autoResyncRooms: _prefs.getBool(_autoResyncRoomsKey) ?? true,
+          smartCacheEnabled: _prefs.getBool(_smartCacheEnabledKey) ?? true,
         ),
       );
 
@@ -101,6 +106,7 @@ class SettingsRepository {
   static const _autoQualityKey = 'settings.auto_quality';
   static const _rememberQueueKey = 'settings.remember_queue';
   static const _autoResyncRoomsKey = 'settings.auto_resync_rooms';
+  static const _smartCacheEnabledKey = 'settings.smart_cache_enabled';
 
   AppSettings get current => notifier.value;
 
@@ -140,5 +146,10 @@ class SettingsRepository {
   Future<void> setAutoResyncRooms(bool value) async {
     await _prefs.setBool(_autoResyncRoomsKey, value);
     notifier.value = notifier.value.copyWith(autoResyncRooms: value);
+  }
+
+  Future<void> setSmartCacheEnabled(bool value) async {
+    await _prefs.setBool(_smartCacheEnabledKey, value);
+    notifier.value = notifier.value.copyWith(smartCacheEnabled: value);
   }
 }

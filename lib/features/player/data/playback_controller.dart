@@ -72,6 +72,19 @@ class PlaybackController {
 
   PlaybackSnapshot get snapshot => notifier.value;
 
+  Future<String?> currentAurexCacheFilePath() async {
+    final currentTrack = snapshot.currentTrack;
+    if (currentTrack == null || !currentTrack.isAurexSource) {
+      return null;
+    }
+    final currentSource = _player.sequenceState.currentSource;
+    if (currentSource is! UriAudioSource ||
+        currentSource.uri.scheme != 'file') {
+      return null;
+    }
+    return currentSource.uri.toFilePath();
+  }
+
   Future<void> playTrack(Track track, {bool bypassRoomLock = false}) async {
     if (!_canControl(bypassRoomLock)) {
       return;

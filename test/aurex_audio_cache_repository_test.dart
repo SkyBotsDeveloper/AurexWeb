@@ -279,6 +279,145 @@ void main() {
       force: true,
     );
   });
+
+  test(
+    'disabled cache neither reads existing files nor writes new ones',
+    () async {
+      var enabled = false;
+      final adapter = _BytesAdapter([1, 2, 3]);
+      dio.httpClientAdapter = adapter;
+      repository = AurexAudioCacheRepository(
+        database,
+        dio,
+        Logger(),
+        cacheDirectoryPath: () async => cacheDirectory.path,
+        cacheEnabled: () => enabled,
+      );
+      final existingTrack = aurexTrack('existing-disabled');
+      final existingFile = File(
+        p.join(cacheDirectory.path, 'existing-disabled.mp3'),
+      );
+      await existingFile.writeAsBytes([1, 2, 3]);
+      final now = DateTime.now();
+      await repository.upsert(
+        cacheRecord(
+          track: existingTrack,
+          file: existingFile,
+          createdAt: now,
+          expiresAt: now.add(const Duration(days: 1)),
+        ),
+      );
+
+      expect(await repository.getCachedUri(existingTrack), isNull);
+      expect(await existingFile.exists(), isTrue);
+
+      final newTrack = aurexTrack('new-disabled');
+      await repository.cacheResolvedTrack(
+        newTrack,
+        Uri.parse('https://audio.example.com/new-disabled'),
+      );
+
+      expect(adapter.requestCount, 0);
+      expect(await repository.getRecord('new-disabled'), isNull);
+      expect(
+        await File(p.join(cacheDirectory.path, 'new-disabled.mp3')).exists(),
+        isFalse,
+      );
+
+      enabled = true;
+      expect(
+        await repository.getCachedUri(existingTrack),
+        Uri.file(existingFile.path),
+      );
+      await repository.cleanupCache(
+        protectedFilePath: existingFile.path,
+        force: true,
+      );
+    },
+  );
+
+  test(
+    'clear reports size and retains the currently playing cache file',
+    () async {
+      final now = DateTime.now();
+      final current = await addCacheEntry(
+        repository: repository,
+        cacheDirectory: cacheDirectory,
+        videoId: 'current-clear',
+        bytes: [1, 2, 3],
+        lastUsedAt: now,
+      );
+      final removable = await addCacheEntry(
+        repository: repository,
+        cacheDirectory: cacheDirectory,
+        videoId: 'removable-clear',
+        bytes: [4, 5, 6, 7],
+        lastUsedAt: now,
+      );
+      final partial = File(
+        p.join(cacheDirectory.path, 'orphan-clear.mp3.part'),
+      );
+      await partial.writeAsBytes([8, 9]);
+
+      expect(await repository.cacheSizeBytes(), 9);
+
+      final result = await repository.clearCache(
+        protectedFilePath: current.path,
+      );
+
+      expect(result.deletedFileCount, 2);
+      expect(result.deletedBytes, 6);
+      expect(result.retainedCurrentFile, isTrue);
+      expect(await current.exists(), isTrue);
+      expect(await repository.getRecord('current-clear'), isNotNull);
+      expect(await removable.exists(), isFalse);
+      expect(await repository.getRecord('removable-clear'), isNull);
+      expect(await partial.exists(), isFalse);
+      expect(await repository.cacheSizeBytes(), 3);
+    },
+  );
+
+  test('disabling cache during download discards the partial file', () async {
+    var enabled = true;
+    final adapter = _BytesAdapter([
+      1,
+      2,
+      3,
+      4,
+    ], delay: const Duration(milliseconds: 30));
+    dio.httpClientAdapter = adapter;
+    repository = AurexAudioCacheRepository(
+      database,
+      dio,
+      Logger(),
+      cacheDirectoryPath: () async => cacheDirectory.path,
+      cacheEnabled: () => enabled,
+    );
+    final track = aurexTrack('disabled-mid-download');
+
+    final operation = repository.cacheResolvedTrack(
+      track,
+      Uri.parse('https://audio.example.com/disabled-mid-download'),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    enabled = false;
+    await operation;
+
+    expect(adapter.requestCount, 1);
+    expect(await repository.getRecord('disabled-mid-download'), isNull);
+    expect(
+      await File(
+        p.join(cacheDirectory.path, 'disabled-mid-download.mp3'),
+      ).exists(),
+      isFalse,
+    );
+    expect(
+      await File(
+        p.join(cacheDirectory.path, 'disabled-mid-download.mp3.part'),
+      ).exists(),
+      isFalse,
+    );
+  });
 }
 
 Future<File> addCacheEntry({

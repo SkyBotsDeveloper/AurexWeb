@@ -1,22 +1,83 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/error_messages.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../library/data/library_repository.dart';
 import '../../music/domain/music_models.dart';
+import '../../player/data/aurex_audio_cache_repository.dart';
 import '../../player/data/download_manager.dart';
+import '../../player/data/playback_controller.dart';
 import '../data/settings_repository.dart';
 
-class SettingsScreen extends ConsumerWidget {
+final _smartCacheSizeProvider = FutureProvider.autoDispose<int?>((ref) {
+  return ref.watch(aurexAudioCacheRepositoryProvider).cacheSizeBytes();
+});
+
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _isClearingSmartCache = false;
+
+  Future<void> _clearSmartCache() async {
+    if (_isClearingSmartCache) {
+      return;
+    }
+    setState(() => _isClearingSmartCache = true);
+    try {
+      final protectedFilePath = await ref
+          .read(playbackControllerProvider)
+          .currentAurexCacheFilePath();
+      final result = await ref
+          .read(aurexAudioCacheRepositoryProvider)
+          .clearCache(protectedFilePath: protectedFilePath);
+      ref.invalidate(_smartCacheSizeProvider);
+      if (!mounted) {
+        return;
+      }
+      final message = result.retainedCurrentFile
+          ? 'Smart Cache cleared except the song currently playing.'
+          : result.deletedFileCount == 0
+          ? 'Smart Cache is already empty.'
+          : 'Smart Cache cleared.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            friendlyErrorMessage(
+              error,
+              fallback: 'Smart Cache could not be cleared. Please try again.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isClearingSmartCache = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final settings = ref.watch(settingsRepositoryProvider);
     final library = ref.watch(libraryRepositoryProvider);
+    final smartCacheSize = ref.watch(_smartCacheSizeProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -120,6 +181,65 @@ class SettingsScreen extends ConsumerWidget {
                             );
                           })
                           .toList(),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              GlassPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Smart Cache',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      value: kIsWeb ? false : current.smartCacheEnabled,
+                      onChanged: kIsWeb ? null : settings.setSmartCacheEnabled,
+                      title: const Text('Cache online songs'),
+                      subtitle: Text(
+                        kIsWeb
+                            ? 'Smart Cache is available on Android and desktop.'
+                            : current.smartCacheEnabled
+                            ? 'Replay recently used Aurex songs from this device.'
+                            : 'Online songs will use stream playback only.',
+                      ),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.storage_rounded),
+                      title: const Text('Storage used'),
+                      subtitle: Text(
+                        kIsWeb
+                            ? 'Local audio caching is unavailable in browsers.'
+                            : smartCacheSize.when(
+                                data: (bytes) => bytes == null
+                                    ? 'Cache size is unavailable.'
+                                    : '${formatBytes(bytes)} used',
+                                error: (_, _) => 'Cache size is unavailable.',
+                                loading: () => 'Calculating storage...',
+                              ),
+                      ),
+                    ),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.delete_sweep_rounded),
+                      title: const Text('Clear Smart Cache'),
+                      subtitle: const Text(
+                        'Remove temporary Aurex audio stored on this device.',
+                      ),
+                      trailing: _isClearingSmartCache
+                          ? const SizedBox.square(
+                              dimension: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.chevron_right_rounded),
+                      onTap: kIsWeb || _isClearingSmartCache
+                          ? null
+                          : _clearSmartCache,
                     ),
                   ],
                 ),

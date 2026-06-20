@@ -756,6 +756,9 @@ class FakePlaybackController implements PlaybackController {
   PlaybackSnapshot get snapshot => notifier.value;
 
   @override
+  Future<String?> currentAurexCacheFilePath() async => null;
+
+  @override
   Future<void> cycleRepeatMode({bool bypassRoomLock = false}) async {}
 
   @override

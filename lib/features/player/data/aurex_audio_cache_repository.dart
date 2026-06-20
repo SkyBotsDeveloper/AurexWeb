@@ -11,6 +11,7 @@ import '../../../core/config/app_providers.dart';
 import '../../../core/storage/app_paths.dart';
 import '../../../core/storage/file_ops.dart';
 import '../../music/domain/music_models.dart';
+import '../../settings/data/settings_repository.dart';
 
 final aurexAudioCacheRepositoryProvider = Provider<AurexAudioCacheRepository>((
   ref,
@@ -23,10 +24,12 @@ final aurexAudioCacheRepositoryProvider = Provider<AurexAudioCacheRepository>((
     ),
   );
   ref.onDispose(() => dio.close(force: true));
+  final settings = ref.watch(settingsRepositoryProvider);
   return AurexAudioCacheRepository(
     ref.watch(appDatabaseProvider).db,
     dio,
     ref.watch(appLoggerProvider),
+    cacheEnabled: () => settings.current.smartCacheEnabled,
   );
 });
 
@@ -110,6 +113,18 @@ class AurexAudioCacheRecord {
   }
 }
 
+class AurexAudioCacheClearResult {
+  const AurexAudioCacheClearResult({
+    required this.deletedFileCount,
+    required this.deletedBytes,
+    required this.retainedCurrentFile,
+  });
+
+  final int deletedFileCount;
+  final int deletedBytes;
+  final bool retainedCurrentFile;
+}
+
 class AurexAudioCacheRepository {
   AurexAudioCacheRepository(
     this._database,
@@ -119,9 +134,11 @@ class AurexAudioCacheRepository {
     this.maxCacheSizeBytes = defaultMaxCacheSizeBytes,
     this.cleanupThrottle = const Duration(hours: 3),
     DateTime Function()? clock,
+    bool Function()? cacheEnabled,
   }) : _cacheDirectoryPath =
            cacheDirectoryPath ?? AppPaths.aurexAudioCacheDirectoryPath,
-       _clock = clock ?? DateTime.now;
+       _clock = clock ?? DateTime.now,
+       _cacheEnabled = cacheEnabled ?? _cacheEnabledByDefault;
 
   final Database _database;
   final Dio _dio;
@@ -130,15 +147,22 @@ class AurexAudioCacheRepository {
   final int maxCacheSizeBytes;
   final Duration cleanupThrottle;
   final DateTime Function() _clock;
+  final bool Function() _cacheEnabled;
   final Map<String, Future<void>> _activeDownloads = {};
   Future<void>? _cleanupOperation;
+  Future<AurexAudioCacheClearResult>? _clearOperation;
   DateTime? _lastCleanupAt;
+  int _cacheGeneration = 0;
 
   static const cacheLifetime = Duration(hours: 48);
   static const hotCacheLifetime = Duration(days: 14);
   static const hotPlayCount = 5;
   static const defaultMaxCacheSizeBytes = 500 * 1024 * 1024;
   static final _store = stringMapStoreFactory.store('aurex_audio_cache');
+
+  static bool _cacheEnabledByDefault() => true;
+
+  bool get isEnabled => !kIsWeb && _cacheEnabled();
 
   Future<AurexAudioCacheRecord?> getRecord(String videoId) async {
     final json = await _store.record(videoId).get(_database);
@@ -157,8 +181,48 @@ class AurexAudioCacheRepository {
     await _store.record(record.videoId).put(_database, record.toJson());
   }
 
+  Future<int?> cacheSizeBytes() async {
+    if (kIsWeb) {
+      return null;
+    }
+    final cacheDirectory = await _cacheDirectoryPath();
+    if (cacheDirectory == null) {
+      return null;
+    }
+    var totalBytes = 0;
+    for (final filePath in await listFiles(cacheDirectory)) {
+      totalBytes += await fileLength(filePath) ?? 0;
+    }
+    return totalBytes;
+  }
+
+  Future<AurexAudioCacheClearResult> clearCache({
+    String? protectedFilePath,
+  }) async {
+    if (kIsWeb) {
+      return const AurexAudioCacheClearResult(
+        deletedFileCount: 0,
+        deletedBytes: 0,
+        retainedCurrentFile: false,
+      );
+    }
+    final activeClear = _clearOperation;
+    if (activeClear != null) {
+      return activeClear;
+    }
+
+    _cacheGeneration += 1;
+    final operation = _performClearCache(protectedFilePath: protectedFilePath);
+    _clearOperation = operation;
+    try {
+      return await operation;
+    } finally {
+      _clearOperation = null;
+    }
+  }
+
   Future<Uri?> getCachedUri(Track track) async {
-    if (kIsWeb || !track.isAurexSource) {
+    if (!isEnabled || _clearOperation != null || !track.isAurexSource) {
       return null;
     }
     final videoId = track.aurexVideoId?.trim();
@@ -242,7 +306,8 @@ class AurexAudioCacheRepository {
   }
 
   Future<void> cacheResolvedTrack(Track track, Uri sourceUri) async {
-    if (kIsWeb ||
+    if (!isEnabled ||
+        _clearOperation != null ||
         !track.isAurexSource ||
         (sourceUri.scheme != 'http' && sourceUri.scheme != 'https')) {
       return;
@@ -260,7 +325,8 @@ class AurexAudioCacheRepository {
       }
       return;
     }
-    final operation = _cacheIfMissing(track, videoId, sourceUri);
+    final generation = _cacheGeneration;
+    final operation = _cacheIfMissing(track, videoId, sourceUri, generation);
     _activeDownloads[videoId] = operation;
     try {
       await operation;
@@ -275,18 +341,26 @@ class AurexAudioCacheRepository {
     Track track,
     String videoId,
     Uri sourceUri,
+    int generation,
   ) async {
+    if (!isEnabled || generation != _cacheGeneration) {
+      return;
+    }
     if (await getCachedUri(track) != null) {
       return;
     }
-    await _downloadAndStore(track, videoId, sourceUri);
+    await _downloadAndStore(track, videoId, sourceUri, generation);
   }
 
   Future<void> _downloadAndStore(
     Track track,
     String videoId,
     Uri sourceUri,
+    int generation,
   ) async {
+    if (!isEnabled || generation != _cacheGeneration) {
+      return;
+    }
     final cacheDirectory = await _cacheDirectoryPath();
     if (cacheDirectory == null) {
       return;
@@ -304,6 +378,9 @@ class AurexAudioCacheRepository {
 
     try {
       await _dio.download(sourceUri.toString(), partialPath);
+      if (!isEnabled || generation != _cacheGeneration) {
+        return;
+      }
       final partialSize = await fileLength(partialPath);
       if (partialSize == null || partialSize <= 0) {
         throw StateError('Downloaded cache file was empty.');
@@ -338,6 +415,87 @@ class AurexAudioCacheRepository {
         await deleteFileIfExists(targetPath);
       }
     }
+  }
+
+  Future<AurexAudioCacheClearResult> _performClearCache({
+    required String? protectedFilePath,
+  }) async {
+    final cacheDirectory = await _cacheDirectoryPath();
+    if (cacheDirectory == null) {
+      return const AurexAudioCacheClearResult(
+        deletedFileCount: 0,
+        deletedBytes: 0,
+        retainedCurrentFile: false,
+      );
+    }
+
+    final safeProtectedPath =
+        protectedFilePath != null &&
+            _isInsideCacheDirectory(protectedFilePath, cacheDirectory)
+        ? protectedFilePath
+        : null;
+    final activePartialPaths = _activeDownloads.keys
+        .map(
+          (videoId) =>
+              p.join(cacheDirectory, '${_safeVideoId(videoId)}.mp3.part'),
+        )
+        .map(p.normalize)
+        .toSet();
+    var deletedFileCount = 0;
+    var deletedBytes = 0;
+    var retainedCurrentFile = false;
+
+    final snapshots = await _store.find(_database);
+    for (final snapshot in snapshots) {
+      AurexAudioCacheRecord? record;
+      try {
+        record = AurexAudioCacheRecord.fromJson(snapshot.value);
+      } on Object {
+        await snapshot.ref.delete(_database);
+      }
+      if (record == null) {
+        continue;
+      }
+
+      final fileSize = await fileLength(record.localFilePath);
+      if (_pathsEqual(record.localFilePath, safeProtectedPath) &&
+          fileSize != null &&
+          fileSize > 0) {
+        retainedCurrentFile = true;
+        continue;
+      }
+
+      await snapshot.ref.delete(_database);
+      if (_isInsideCacheDirectory(record.localFilePath, cacheDirectory) &&
+          fileSize != null) {
+        await deleteFileIfExists(record.localFilePath);
+        deletedFileCount += 1;
+        deletedBytes += fileSize;
+      }
+    }
+
+    for (final filePath in await listFiles(cacheDirectory)) {
+      if (_pathsEqual(filePath, safeProtectedPath)) {
+        retainedCurrentFile = true;
+        continue;
+      }
+      if (activePartialPaths.contains(p.normalize(filePath))) {
+        continue;
+      }
+      final fileSize = await fileLength(filePath);
+      if (fileSize == null) {
+        continue;
+      }
+      await deleteFileIfExists(filePath);
+      deletedFileCount += 1;
+      deletedBytes += fileSize;
+    }
+
+    return AurexAudioCacheClearResult(
+      deletedFileCount: deletedFileCount,
+      deletedBytes: deletedBytes,
+      retainedCurrentFile: retainedCurrentFile,
+    );
   }
 
   Future<void> _performCleanup({
