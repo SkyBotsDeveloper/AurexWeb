@@ -2,16 +2,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 
 import '../../../core/config/app_providers.dart';
+import '../../library/data/library_repository.dart';
 import '../../music/data/aurex_api_client.dart';
 import '../../music/data/music_repository.dart';
 import '../../music/domain/music_models.dart';
 
 final autoplayRecommendationServiceProvider =
     Provider<AutoplayRecommendationService>((ref) {
+      final libraryRepository = ref.watch(libraryRepositoryProvider);
       return AutoplayRecommendationService(
         ref.watch(musicRepositoryProvider),
         ref.watch(aurexApiClientProvider),
         ref.watch(appLoggerProvider),
+        rankSuggestions: (tracks, limit) =>
+            libraryRepository.rankSuggestions(tracks, limit: limit),
       );
     });
 
@@ -23,17 +27,21 @@ typedef AutoplaySuggestionLoader =
     );
 typedef AutoplaySuggestionAppender =
     Future<void> Function(List<Track> tracks, String expectedCurrentTrackId);
+typedef PersonalizedSuggestionRanker =
+    Future<List<Track>> Function(List<Track> tracks, int limit);
 
 class AutoplayRecommendationService {
   AutoplayRecommendationService(
     this._musicRepository,
     this._aurexApiClient,
-    this._logger,
-  );
+    this._logger, {
+    PersonalizedSuggestionRanker? rankSuggestions,
+  }) : _rankSuggestions = rankSuggestions ?? _defaultRanker;
 
   final MusicRepository _musicRepository;
   final AurexApiClient _aurexApiClient;
   final Logger _logger;
+  final PersonalizedSuggestionRanker _rankSuggestions;
 
   static const _trackFetchTimeout = Duration(seconds: 3);
 
@@ -66,7 +74,7 @@ class AutoplayRecommendationService {
         .where((id) => id.isNotEmpty)
         .toSet();
 
-    for (final summary in results.songs.take(limit * 2)) {
+    for (final summary in results.songs.take(limit * 3)) {
       if (summary.type != MusicItemType.song ||
           existingIds.contains(summary.id.trim().toLowerCase())) {
         continue;
@@ -83,14 +91,14 @@ class AutoplayRecommendationService {
         if (unique.isNotEmpty) {
           suggestions.add(unique.first);
         }
-        if (suggestions.length >= limit) {
+        if (suggestions.length >= limit * 2) {
           break;
         }
       } catch (error) {
         _logger.d('Skipping primary autoplay suggestion ${summary.id}: $error');
       }
     }
-    return suggestions;
+    return _rankSuggestions(suggestions, limit);
   }
 
   Future<List<Track>> _loadAurexSuggestions(
@@ -100,14 +108,20 @@ class AutoplayRecommendationService {
   ) async {
     final results = await _aurexApiClient.searchAurexSongs(
       query,
-      limit: limit * 2,
+      limit: limit * 3,
     );
-    return filterUniqueAutoplayTracks(
+    final unique = filterUniqueAutoplayTracks(
       results.map((song) => song.toTrack()),
       existingQueue,
-      limit: limit,
+      limit: limit * 3,
     );
+    return _rankSuggestions(unique, limit);
   }
+
+  static Future<List<Track>> _defaultRanker(
+    List<Track> tracks,
+    int limit,
+  ) async => tracks.take(limit).toList(growable: false);
 }
 
 class AutoplayQueueExtender {

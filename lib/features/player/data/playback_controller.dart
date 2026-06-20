@@ -20,6 +20,7 @@ import '../../settings/data/settings_repository.dart';
 import 'aurex_audio_cache_repository.dart';
 import 'autoplay_queue_extension.dart';
 import 'playback_models.dart';
+import 'playback_stats_tracker.dart';
 
 final playbackControllerProvider = Provider<PlaybackController>((ref) {
   final controller = PlaybackController(
@@ -47,6 +48,7 @@ class PlaybackController {
     this._aurexAudioCacheRepository,
     AutoplayRecommendationService autoplayRecommendations,
   ) : _player = AudioPlayer() {
+    _playbackStatsTracker = PlaybackStatsTracker(_libraryRepository);
     _autoplayQueueExtender = AutoplayQueueExtender(
       loadSuggestions: autoplayRecommendations.loadSuggestions,
       appendSuggestions: _appendAutoplaySuggestions,
@@ -66,6 +68,7 @@ class PlaybackController {
   final SettingsRepository _settingsRepository;
   final AurexAudioCacheRepository _aurexAudioCacheRepository;
   final AudioPlayer _player;
+  late final PlaybackStatsTracker _playbackStatsTracker;
   late final AutoplayQueueExtender _autoplayQueueExtender;
   final ValueNotifier<PlaybackSnapshot> notifier = ValueNotifier(
     const PlaybackSnapshot(),
@@ -121,6 +124,20 @@ class PlaybackController {
     }
     if (queue.isEmpty) {
       return;
+    }
+
+    final requestedTrack = initialTrackId == null
+        ? queue[initialIndex.clamp(0, queue.length - 1)]
+        : queue.firstWhere(
+            (track) => track.id == initialTrackId,
+            orElse: () => queue[initialIndex.clamp(0, queue.length - 1)],
+          );
+    if (_canRecordPlaybackStats()) {
+      if (snapshot.currentTrack?.id != requestedTrack.id) {
+        _playbackStatsTracker.markUserSkip();
+      } else if (autoplay && initialPosition == Duration.zero) {
+        _playbackStatsTracker.finishForReplay();
+      }
     }
 
     final requestVersion = ++_queueRequestVersion;
@@ -703,6 +720,10 @@ class PlaybackController {
 
     final safeIndex = index.clamp(0, snapshot.queue.length - 1);
     final targetTrack = snapshot.queue[safeIndex];
+    if (snapshot.currentTrack?.id != targetTrack.id &&
+        _canRecordPlaybackStats()) {
+      _playbackStatsTracker.markUserSkip();
+    }
     if (targetTrack.isAurexSource && _shouldRefreshAurexTrack(targetTrack)) {
       await setQueue(
         snapshot.queue,
@@ -748,6 +769,9 @@ class PlaybackController {
       return;
     }
     if (_player.hasNext) {
+      if (_canRecordPlaybackStats()) {
+        _playbackStatsTracker.markUserSkip();
+      }
       await _player.seekToNext();
       await _persistSession();
     }
@@ -763,6 +787,9 @@ class PlaybackController {
       return;
     }
     if (_player.hasPrevious) {
+      if (_canRecordPlaybackStats()) {
+        _playbackStatsTracker.markUserSkip();
+      }
       await _player.seekToPrevious();
       await _persistSession();
     }
@@ -795,6 +822,7 @@ class PlaybackController {
     _disposed = true;
     _settingsRepository.notifier.removeListener(_handleSettingsChanged);
     _autoplayQueueExtender.reset();
+    await _playbackStatsTracker.flush();
     await _persistSession();
     for (final subscription in _subscriptions) {
       await subscription.cancel();
@@ -812,6 +840,12 @@ class PlaybackController {
         );
         final track = notifier.value.currentTrack;
         if (track != null) {
+          _playbackStatsTracker.updateTrack(
+            track: track,
+            isPlaying: _player.playing,
+            canRecord: _canRecordPlaybackStats(),
+            duration: _player.duration ?? track.duration,
+          );
           await _libraryRepository.addToHistory(track);
           final currentSource = _player.sequenceState.currentSource;
           if (currentSource is UriAudioSource) {
@@ -825,6 +859,10 @@ class PlaybackController {
     _subscriptions.add(
       _player.positionStream.listen((position) {
         notifier.value = notifier.value.copyWith(position: position);
+        _playbackStatsTracker.updatePosition(
+          position,
+          duration: _player.duration ?? notifier.value.currentTrack?.duration,
+        );
       }),
     );
     _subscriptions.add(
@@ -853,6 +891,12 @@ class PlaybackController {
           isBuffering:
               state.processingState == ProcessingState.buffering ||
               state.processingState == ProcessingState.loading,
+        );
+        _playbackStatsTracker.updateTrack(
+          track: notifier.value.currentTrack,
+          isPlaying: state.playing,
+          canRecord: _canRecordPlaybackStats(),
+          duration: _player.duration ?? notifier.value.currentTrack?.duration,
         );
         if (state.playing) {
           _scheduleAutoplayExtension();
@@ -1149,5 +1193,9 @@ class PlaybackController {
       error: roomPlaybackLockedMessage(roomSession),
     );
     return false;
+  }
+
+  bool _canRecordPlaybackStats() {
+    return !_ref.read(roomSessionControllerProvider).controlsLocked;
   }
 }

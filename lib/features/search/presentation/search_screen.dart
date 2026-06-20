@@ -14,6 +14,7 @@ import '../../../core/widgets/screen_intro_panel.dart';
 import '../../../core/widgets/section_header.dart';
 import '../../../core/widgets/skeleton_loader.dart';
 import '../../../core/widgets/state_scaffold.dart';
+import '../../library/data/library_repository.dart';
 import '../../music/data/aurex_api_client.dart';
 import '../../music/data/music_repository.dart';
 import '../../music/domain/music_models.dart';
@@ -22,6 +23,7 @@ import '../../player/data/playback_controller.dart';
 import '../../rooms/data/room_session_controller.dart';
 
 const _searchGroupVisibleLimit = 5;
+const _searchQueueRelatedLimit = 3;
 const _relatedSearchTrackTimeout = Duration(seconds: 2);
 
 class _MergedSongResult {
@@ -333,32 +335,37 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         }
       }
 
-      final queue = <Track>[];
-      final queuedTrackIds = <String>{};
-      var initialIndex = 0;
+      final relatedTracks = <Track>[];
+      final relatedTrackIds = <String>{};
       for (final item in candidates) {
-        final track = tracksBySummaryId[item.id];
-        if (track == null || !queuedTrackIds.add(track.id)) {
+        if (item.id == selected.id) {
           continue;
         }
-        if (item.id == selected.id) {
-          initialIndex = queue.length;
+        final track = tracksBySummaryId[item.id];
+        if (track == null || !relatedTrackIds.add(track.id)) {
+          continue;
         }
-        queue.add(track);
+        relatedTracks.add(track);
       }
+      final rankedRelated = relatedTracks.length > _searchQueueRelatedLimit
+          ? await ref
+                .read(libraryRepositoryProvider)
+                .rankSuggestions(relatedTracks, limit: _searchQueueRelatedLimit)
+          : relatedTracks;
+      final queue = <Track>[selectedTrack, ...rankedRelated];
 
       final controller = ref.read(playbackControllerProvider);
       await controller.setQueue(
         queue,
-        initialIndex: initialIndex,
+        initialIndex: 0,
         initialTrackId: selectedTrack.id,
       );
       if (!mounted || playbackVersion != _songPlaybackVersion) {
         return;
       }
       unawaited(
-        _appendOnlineTracks(
-          suggestions: onlineCandidates.take(3).toList(),
+        _appendRankedOnlineTracks(
+          suggestions: onlineCandidates,
           selectedTrackId: selectedTrack.id,
           playbackVersion: playbackVersion,
           client: ref.read(aurexApiClientProvider),
@@ -421,21 +428,54 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     }
 
     final suggestions = <AurexSong>[];
-    for (
-      var offset = 1;
-      offset < candidates.length && suggestions.length < 3;
-      offset++
-    ) {
+    for (var offset = 1; offset < candidates.length; offset++) {
       suggestions.add(candidates[(selectedIndex + offset) % candidates.length]);
     }
 
-    await _appendOnlineTracks(
+    await _appendRankedOnlineTracks(
       suggestions: suggestions,
       selectedTrackId: selectedTrackId,
       playbackVersion: playbackVersion,
       client: client,
       controller: controller,
     );
+  }
+
+  Future<void> _appendRankedOnlineTracks({
+    required List<AurexSong> suggestions,
+    required String selectedTrackId,
+    required int playbackVersion,
+    required AurexApiClient client,
+    required PlaybackController controller,
+  }) async {
+    final ranked = await _rankOnlineSuggestions(suggestions, limit: 3);
+    await _appendOnlineTracks(
+      suggestions: ranked,
+      selectedTrackId: selectedTrackId,
+      playbackVersion: playbackVersion,
+      client: client,
+      controller: controller,
+    );
+  }
+
+  Future<List<AurexSong>> _rankOnlineSuggestions(
+    List<AurexSong> candidates, {
+    required int limit,
+  }) async {
+    if (candidates.length <= limit) {
+      return candidates.take(limit).toList(growable: false);
+    }
+    final byTrackId = {for (final song in candidates) song.id: song};
+    final rankedTracks = await ref
+        .read(libraryRepositoryProvider)
+        .rankSuggestions(
+          candidates.map((song) => song.toTrack()),
+          limit: limit,
+        );
+    return rankedTracks
+        .map((track) => byTrackId[track.id])
+        .whereType<AurexSong>()
+        .toList(growable: false);
   }
 
   Future<void> _appendOnlineTracks({

@@ -207,6 +207,55 @@ void main() {
       expect(aurexClient.searchCalls, 1);
     },
   );
+
+  test(
+    'recommendation service applies personalized ranking before limit',
+    () async {
+      final results = [
+        onlineSong('online-1'),
+        onlineSong('online-2'),
+        onlineSong('online-3'),
+      ];
+      final service = AutoplayRecommendationService(
+        _FakeMusicRepository(
+          results: const SearchResults(
+            topQuery: [],
+            songs: [],
+            albums: [],
+            artists: [],
+            playlists: [],
+          ),
+          tracks: const {},
+        ),
+        _FakeAurexApiClient(results),
+        Logger(),
+        rankSuggestions: (tracks, limit) async =>
+            tracks.reversed.take(limit).toList(growable: false),
+      );
+      final seed = track('aurex-seed', source: 'aurex', externalId: 'seed');
+
+      final suggestions = await service.loadSuggestions(seed, [seed], 2);
+
+      expect(suggestions.map((track) => track.id), [
+        'aurex-online-3',
+        'aurex-online-2',
+      ]);
+    },
+  );
+}
+
+AurexSong onlineSong(String videoId) {
+  return AurexSong(
+    id: 'aurex-$videoId',
+    title: 'Song $videoId',
+    artist: 'Online Artist',
+    channel: 'Online Artist',
+    duration: '3:00',
+    thumbnail: null,
+    image: null,
+    videoId: videoId,
+    youtubeUrl: null,
+  );
 }
 
 Track track(

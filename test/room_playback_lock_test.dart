@@ -448,11 +448,11 @@ void main() {
 
     expect(fakePlayback.setQueueCalls, 1);
     expect(fakePlayback.snapshot.queue.map((track) => track.id), [
-      'search-1',
       'search-2',
+      'search-1',
       'search-3',
     ]);
-    expect(fakePlayback.snapshot.currentIndex, 1);
+    expect(fakePlayback.snapshot.currentIndex, 0);
     expect(fakePlayback.lastInitialTrackId, 'search-2');
   });
 

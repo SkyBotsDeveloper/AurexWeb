@@ -5,17 +5,18 @@ import '../../../core/config/app_providers.dart';
 import '../../../core/storage/app_database.dart';
 import '../../music/domain/music_models.dart';
 import 'library_models.dart';
+import 'playback_stats.dart';
 
 final libraryRepositoryProvider = Provider<LibraryRepository>(
   (ref) => LibraryRepository(ref.watch(appDatabaseProvider)),
 );
 
-class LibraryRepository {
-  LibraryRepository(this._database);
+class LibraryRepository implements PlaybackStatsWriter {
+  LibraryRepository(AppDatabase database) : _db = database.db;
 
-  final AppDatabase _database;
+  LibraryRepository.forDatabase(this._db);
 
-  Database get _db => _database.db;
+  final Database _db;
 
   static final _likesStore = stringMapStoreFactory.store(
     'library_liked_tracks',
@@ -28,6 +29,9 @@ class LibraryRepository {
   );
   static final _playlistsStore = stringMapStoreFactory.store(
     'library_playlists',
+  );
+  static final _playbackStatsStore = stringMapStoreFactory.store(
+    'library_playback_stats',
   );
 
   Stream<List<Track>> watchLikedTracks() {
@@ -73,6 +77,99 @@ class LibraryRepository {
       'lastPlayedAt': DateTime.now().toIso8601String(),
       'track': track.toJson(),
     });
+  }
+
+  @override
+  Future<void> recordPlaybackStart(Track track, {DateTime? at}) async {
+    final now = at ?? DateTime.now();
+    final record = _playbackStatsStore.record(playbackStatsKey(track));
+    await _db.transaction((transaction) async {
+      final raw = await record.get(transaction);
+      final current = raw == null
+          ? PlaybackStats.forTrack(track, now)
+          : PlaybackStats.fromJson(raw);
+      await record.put(
+        transaction,
+        current
+            .copyWith(
+              trackId: track.id,
+              source: track.source,
+              externalId: track.aurexVideoId ?? track.externalId,
+              title: track.title,
+              artist: track.artistNames,
+              playCount: current.playCount + 1,
+              lastPlayedAt: now,
+              updatedAt: now,
+            )
+            .toJson(),
+      );
+    });
+  }
+
+  @override
+  Future<void> recordPlaybackOutcome(
+    Track track, {
+    required Duration listened,
+    required bool completed,
+    required bool skipped,
+    DateTime? at,
+  }) async {
+    final now = at ?? DateTime.now();
+    final record = _playbackStatsStore.record(playbackStatsKey(track));
+    await _db.transaction((transaction) async {
+      final raw = await record.get(transaction);
+      final current = raw == null
+          ? PlaybackStats.forTrack(track, now)
+          : PlaybackStats.fromJson(raw);
+      await record.put(
+        transaction,
+        current
+            .copyWith(
+              trackId: track.id,
+              source: track.source,
+              externalId: track.aurexVideoId ?? track.externalId,
+              title: track.title,
+              artist: track.artistNames,
+              completedPlayCount:
+                  current.completedPlayCount + (completed ? 1 : 0),
+              skipCount: current.skipCount + (skipped ? 1 : 0),
+              totalListenMs: current.totalListenMs + listened.inMilliseconds,
+              updatedAt: now,
+            )
+            .toJson(),
+      );
+    });
+  }
+
+  Future<PlaybackStats?> getPlaybackStats(Track track) async {
+    final raw = await _playbackStatsStore
+        .record(playbackStatsKey(track))
+        .get(_db);
+    return raw == null ? null : PlaybackStats.fromJson(raw);
+  }
+
+  Future<List<PlaybackStats>> getAllPlaybackStats() async {
+    final snapshots = await _playbackStatsStore.find(_db);
+    return snapshots
+        .map((snapshot) => PlaybackStats.fromJson(snapshot.value))
+        .toList(growable: false);
+  }
+
+  Future<List<Track>> rankSuggestions(
+    Iterable<Track> candidates, {
+    int limit = 5,
+    DateTime? now,
+  }) async {
+    final candidateList = candidates.toList(growable: false);
+    if (candidateList.length <= 1 || limit <= 0) {
+      return candidateList.take(limit).toList(growable: false);
+    }
+    return rankTracksByPlaybackStats(
+      candidateList,
+      await getAllPlaybackStats(),
+      limit: limit,
+      now: now,
+    );
   }
 
   Stream<List<Track>> watchHistory() {
