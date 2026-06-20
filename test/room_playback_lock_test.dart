@@ -742,6 +742,7 @@ class FakePlaybackController implements PlaybackController {
     List<Track> tracks, {
     required String expectedCurrentTrackId,
     bool bypassRoomLock = false,
+    bool deduplicateSimilar = false,
   }) async {
     appendToQueueCalls += 1;
     if (notifier.value.currentTrack?.id != expectedCurrentTrackId) {

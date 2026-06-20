@@ -274,6 +274,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
+                      value: current.autoplaySimilarSongs,
+                      onChanged: settings.setAutoplaySimilarSongs,
+                      title: const Text('Autoplay similar songs'),
+                      subtitle: const Text(
+                        'Add related songs when the queue is almost finished.',
+                      ),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
                       value: current.autoResyncRooms,
                       onChanged: settings.setAutoResyncRooms,
                       title: const Text('Auto-resync rooms'),

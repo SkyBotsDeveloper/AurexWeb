@@ -37,6 +37,7 @@ class AppSettings {
     required this.rememberQueue,
     required this.autoResyncRooms,
     required this.smartCacheEnabled,
+    required this.autoplaySimilarSongs,
   });
 
   final AppThemePreference themePreference;
@@ -47,6 +48,7 @@ class AppSettings {
   final bool rememberQueue;
   final bool autoResyncRooms;
   final bool smartCacheEnabled;
+  final bool autoplaySimilarSongs;
 
   AppSettings copyWith({
     AppThemePreference? themePreference,
@@ -57,6 +59,7 @@ class AppSettings {
     bool? rememberQueue,
     bool? autoResyncRooms,
     bool? smartCacheEnabled,
+    bool? autoplaySimilarSongs,
   }) {
     return AppSettings(
       themePreference: themePreference ?? this.themePreference,
@@ -67,6 +70,7 @@ class AppSettings {
       rememberQueue: rememberQueue ?? this.rememberQueue,
       autoResyncRooms: autoResyncRooms ?? this.autoResyncRooms,
       smartCacheEnabled: smartCacheEnabled ?? this.smartCacheEnabled,
+      autoplaySimilarSongs: autoplaySimilarSongs ?? this.autoplaySimilarSongs,
     );
   }
 }
@@ -92,6 +96,8 @@ class SettingsRepository {
           rememberQueue: _prefs.getBool(_rememberQueueKey) ?? true,
           autoResyncRooms: _prefs.getBool(_autoResyncRoomsKey) ?? true,
           smartCacheEnabled: _prefs.getBool(_smartCacheEnabledKey) ?? true,
+          autoplaySimilarSongs:
+              _prefs.getBool(_autoplaySimilarSongsKey) ?? true,
         ),
       );
 
@@ -107,6 +113,7 @@ class SettingsRepository {
   static const _rememberQueueKey = 'settings.remember_queue';
   static const _autoResyncRoomsKey = 'settings.auto_resync_rooms';
   static const _smartCacheEnabledKey = 'settings.smart_cache_enabled';
+  static const _autoplaySimilarSongsKey = 'settings.autoplay_similar_songs';
 
   AppSettings get current => notifier.value;
 
@@ -151,5 +158,10 @@ class SettingsRepository {
   Future<void> setSmartCacheEnabled(bool value) async {
     await _prefs.setBool(_smartCacheEnabledKey, value);
     notifier.value = notifier.value.copyWith(smartCacheEnabled: value);
+  }
+
+  Future<void> setAutoplaySimilarSongs(bool value) async {
+    await _prefs.setBool(_autoplaySimilarSongsKey, value);
+    notifier.value = notifier.value.copyWith(autoplaySimilarSongs: value);
   }
 }

@@ -18,6 +18,7 @@ import '../../music/domain/music_models.dart';
 import '../../rooms/data/room_session_controller.dart';
 import '../../settings/data/settings_repository.dart';
 import 'aurex_audio_cache_repository.dart';
+import 'autoplay_queue_extension.dart';
 import 'playback_models.dart';
 
 final playbackControllerProvider = Provider<PlaybackController>((ref) {
@@ -27,6 +28,7 @@ final playbackControllerProvider = Provider<PlaybackController>((ref) {
     ref.watch(libraryRepositoryProvider),
     ref.watch(settingsRepositoryProvider),
     ref.watch(aurexAudioCacheRepositoryProvider),
+    ref.watch(autoplayRecommendationServiceProvider),
   );
   ref.onDispose(() {
     unawaited(controller.dispose());
@@ -43,7 +45,17 @@ class PlaybackController {
     this._libraryRepository,
     this._settingsRepository,
     this._aurexAudioCacheRepository,
+    AutoplayRecommendationService autoplayRecommendations,
   ) : _player = AudioPlayer() {
+    _autoplayQueueExtender = AutoplayQueueExtender(
+      loadSuggestions: autoplayRecommendations.loadSuggestions,
+      appendSuggestions: _appendAutoplaySuggestions,
+      isEnabled: () => _settingsRepository.current.autoplaySimilarSongs,
+      canExtend: () => !_ref.read(roomSessionControllerProvider).controlsLocked,
+      logger: AppLogger.instance,
+    );
+    _lastAutoplayEnabled = _settingsRepository.current.autoplaySimilarSongs;
+    _settingsRepository.notifier.addListener(_handleSettingsChanged);
     _bindPlayer();
     unawaited(_restoreSession());
   }
@@ -54,6 +66,7 @@ class PlaybackController {
   final SettingsRepository _settingsRepository;
   final AurexAudioCacheRepository _aurexAudioCacheRepository;
   final AudioPlayer _player;
+  late final AutoplayQueueExtender _autoplayQueueExtender;
   final ValueNotifier<PlaybackSnapshot> notifier = ValueNotifier(
     const PlaybackSnapshot(),
   );
@@ -63,6 +76,8 @@ class PlaybackController {
   DateTime? _pausedAt;
   Future<void>? _resumeOperation;
   final Map<String, DateTime> _aurexStreamResolvedAt = {};
+  late bool _lastAutoplayEnabled;
+  bool _disposed = false;
 
   static const _queueKey = 'playback.queue';
   static const _indexKey = 'playback.index';
@@ -201,6 +216,7 @@ class PlaybackController {
       'Replacing playback queue with ${playableTracks.length} track(s); '
       'index=$safeIndex; autoplay=$autoplay; uri=${sources[safeIndex].sequence.first.tag is MediaItem ? (sources[safeIndex].sequence.first.tag as MediaItem).id : playableTracks[safeIndex].id}',
     );
+    _autoplayQueueExtender.reset();
     await _resetPlaybackForReplacement();
     await _player.setAudioSources(
       sources,
@@ -250,6 +266,7 @@ class PlaybackController {
       }
     }
     await _persistSession();
+    _scheduleAutoplayExtension();
   }
 
   Future<void> _resetPlaybackForReplacement() async {
@@ -519,6 +536,7 @@ class PlaybackController {
     List<Track> tracks, {
     required String expectedCurrentTrackId,
     bool bypassRoomLock = false,
+    bool deduplicateSimilar = false,
   }) async {
     if (!_canControl(bypassRoomLock) || tracks.isEmpty) {
       return;
@@ -532,6 +550,7 @@ class PlaybackController {
             tracks,
             expectedCurrentTrackId: expectedCurrentTrackId,
             requestVersion: requestVersion,
+            deduplicateSimilar: deduplicateSimilar,
           ),
         );
     await _queueOperation;
@@ -541,9 +560,11 @@ class PlaybackController {
     List<Track> tracks, {
     required String expectedCurrentTrackId,
     required int requestVersion,
+    required bool deduplicateSimilar,
   }) async {
     if (requestVersion != _queueRequestVersion ||
-        snapshot.currentTrack?.id != expectedCurrentTrackId) {
+        snapshot.currentTrack?.id != expectedCurrentTrackId ||
+        _ref.read(roomSessionControllerProvider).controlsLocked) {
       return;
     }
 
@@ -551,13 +572,21 @@ class PlaybackController {
     final appendedIds = <String>{};
     final playableTracks = <Track>[];
     final sources = <AudioSource>[];
+    final appendCandidates = deduplicateSimilar
+        ? filterUniqueAutoplayTracks(
+            tracks,
+            snapshot.queue,
+            limit: tracks.length,
+          )
+        : tracks;
 
-    for (final track in tracks) {
+    for (final track in appendCandidates) {
       if (existingIds.contains(track.id) || !appendedIds.add(track.id)) {
         continue;
       }
       if (requestVersion != _queueRequestVersion ||
-          snapshot.currentTrack?.id != expectedCurrentTrackId) {
+          snapshot.currentTrack?.id != expectedCurrentTrackId ||
+          _ref.read(roomSessionControllerProvider).controlsLocked) {
         return;
       }
       try {
@@ -578,7 +607,8 @@ class PlaybackController {
 
     if (sources.isEmpty ||
         requestVersion != _queueRequestVersion ||
-        snapshot.currentTrack?.id != expectedCurrentTrackId) {
+        snapshot.currentTrack?.id != expectedCurrentTrackId ||
+        _ref.read(roomSessionControllerProvider).controlsLocked) {
       return;
     }
 
@@ -594,6 +624,57 @@ class PlaybackController {
       'anchor=$expectedCurrentTrackId',
     );
     await _persistSession();
+  }
+
+  Future<void> _appendAutoplaySuggestions(
+    List<Track> tracks,
+    String expectedCurrentTrackId,
+  ) async {
+    if (!_settingsRepository.current.autoplaySimilarSongs ||
+        _ref.read(roomSessionControllerProvider).controlsLocked) {
+      return;
+    }
+    await appendToQueue(
+      tracks,
+      expectedCurrentTrackId: expectedCurrentTrackId,
+      bypassRoomLock: true,
+      deduplicateSimilar: true,
+    );
+  }
+
+  void _scheduleAutoplayExtension() {
+    if (_disposed ||
+        (!snapshot.isPlaying && !_player.playing) ||
+        snapshot.queue.isEmpty) {
+      return;
+    }
+    final queue = List<Track>.unmodifiable(snapshot.queue);
+    final currentIndex = snapshot.currentIndex ?? _player.currentIndex;
+    unawaited(_runAutoplayExtension(queue, currentIndex));
+  }
+
+  Future<void> _runAutoplayExtension(
+    List<Track> queue,
+    int? currentIndex,
+  ) async {
+    final attempted = await _autoplayQueueExtender.maybeExtend(
+      queue: queue,
+      currentIndex: currentIndex,
+    );
+    if (attempted && !_disposed) {
+      _scheduleAutoplayExtension();
+    }
+  }
+
+  void _handleSettingsChanged() {
+    final enabled = _settingsRepository.current.autoplaySimilarSongs;
+    if (enabled != _lastAutoplayEnabled) {
+      _lastAutoplayEnabled = enabled;
+      _autoplayQueueExtender.reset();
+    }
+    if (enabled) {
+      _scheduleAutoplayExtension();
+    }
   }
 
   AudioSource _audioSourceForTrack(Track track, Uri uri) {
@@ -711,6 +792,9 @@ class PlaybackController {
   }
 
   Future<void> dispose() async {
+    _disposed = true;
+    _settingsRepository.notifier.removeListener(_handleSettingsChanged);
+    _autoplayQueueExtender.reset();
     await _persistSession();
     for (final subscription in _subscriptions) {
       await subscription.cancel();
@@ -731,6 +815,7 @@ class PlaybackController {
           await _libraryRepository.addToHistory(track);
         }
         await _persistSession();
+        _scheduleAutoplayExtension();
       }),
     );
     _subscriptions.add(
@@ -765,6 +850,9 @@ class PlaybackController {
               state.processingState == ProcessingState.buffering ||
               state.processingState == ProcessingState.loading,
         );
+        if (state.playing) {
+          _scheduleAutoplayExtension();
+        }
       }),
     );
     _subscriptions.add(
