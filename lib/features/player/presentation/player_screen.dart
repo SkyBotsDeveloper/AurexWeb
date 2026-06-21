@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart';
@@ -22,7 +24,11 @@ class PlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
-  bool _showLyrics = true;
+  bool _showLyrics = false;
+  _LyricsAvailability _lyricsAvailability = _LyricsAvailability.loading;
+  LyricsBundle? _lyricsBundle;
+  String? _lyricsTrackKey;
+  int _lyricsRequestId = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -38,12 +44,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         builder: (context, snapshot, child) {
           final track = snapshot.currentTrack;
           if (track == null) {
+            _syncLyricsTrack(null);
             return const StateScaffold(
               icon: Icons.music_off_rounded,
               title: 'Nothing is playing',
               message: 'Choose a track from Home, Search, or Library.',
             );
           }
+
+          _syncLyricsTrack(track);
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -221,35 +230,18 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               const SizedBox(height: 16),
               TrackSupportActions(track: track),
               const SizedBox(height: 24),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  FilledButton.tonalIcon(
-                    onPressed: () {
-                      setState(() {
-                        _showLyrics = !_showLyrics;
-                      });
-                    },
-                    icon: Icon(
-                      _showLyrics
-                          ? Icons.lyrics_rounded
-                          : Icons.lyrics_outlined,
-                    ),
-                    label: Text(_showLyrics ? 'Hide Lyrics' : 'Show Lyrics'),
+              if (_lyricsAvailability == _LyricsAvailability.available) ...[
+                FilledButton.tonalIcon(
+                  onPressed: _toggleLyrics,
+                  icon: Icon(
+                    _showLyrics ? Icons.lyrics_rounded : Icons.lyrics_outlined,
                   ),
-                  Text(
-                    _showLyrics
-                        ? 'Lyrics stay visible with the current track.'
-                        : 'Lyrics are hidden until you turn them back on.',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+                  label: Text(_showLyrics ? 'Hide Lyrics' : 'Lyrics'),
+                ),
+                if (_showLyrics && _lyricsBundle != null) ...[
+                  const SizedBox(height: 24),
+                  _LyricsSection(bundle: _lyricsBundle!),
                 ],
-              ),
-              const SizedBox(height: 24),
-              if (_showLyrics) ...[
-                _LyricsSection(track: track),
                 const SizedBox(height: 24),
               ],
               Text('Queue', style: Theme.of(context).textTheme.titleLarge),
@@ -278,116 +270,123 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       ),
     );
   }
-}
 
-class _LyricsSection extends ConsumerStatefulWidget {
-  const _LyricsSection({required this.track});
+  void _syncLyricsTrack(Track? track) {
+    final trackKey = track == null
+        ? null
+        : '${track.source}:${track.id}:${track.lyricsId ?? ''}';
+    if (_lyricsTrackKey == trackKey) {
+      return;
+    }
 
-  final Track track;
+    _lyricsTrackKey = trackKey;
+    _showLyrics = false;
+    _lyricsBundle = null;
+    _lyricsAvailability = _LyricsAvailability.loading;
+    final requestId = ++_lyricsRequestId;
+    if (track == null) {
+      return;
+    }
 
-  @override
-  ConsumerState<_LyricsSection> createState() => _LyricsSectionState();
-}
-
-class _LyricsSectionState extends ConsumerState<_LyricsSection> {
-  late Future<LyricsBundle> _lyricsFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _resetFutures();
+    final lookup = ref.read(musicRepositoryProvider).fetchBestLyrics(track);
+    unawaited(_completeLyricsLookup(lookup, trackKey!, requestId));
   }
 
-  @override
-  void didUpdateWidget(covariant _LyricsSection oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final previousId = oldWidget.track.lyricsId ?? oldWidget.track.id;
-    final currentId = widget.track.lyricsId ?? widget.track.id;
-    if (previousId != currentId) {
-      _resetFutures();
+  Future<void> _completeLyricsLookup(
+    Future<LyricsBundle> lookup,
+    String trackKey,
+    int requestId,
+  ) async {
+    try {
+      final bundle = await lookup;
+      if (!mounted ||
+          requestId != _lyricsRequestId ||
+          trackKey != _lyricsTrackKey) {
+        return;
+      }
+      setState(() {
+        _lyricsBundle = bundle.hasAny ? bundle : null;
+        _lyricsAvailability = bundle.hasAny
+            ? _LyricsAvailability.available
+            : _LyricsAvailability.unavailable;
+      });
+    } catch (_) {
+      if (!mounted ||
+          requestId != _lyricsRequestId ||
+          trackKey != _lyricsTrackKey) {
+        return;
+      }
+      setState(() {
+        _showLyrics = false;
+        _lyricsBundle = null;
+        _lyricsAvailability = _LyricsAvailability.error;
+      });
     }
   }
 
-  void _resetFutures() {
-    final repository = ref.read(musicRepositoryProvider);
-    _lyricsFuture = repository.fetchBestLyrics(widget.track);
+  void _toggleLyrics() {
+    if (_lyricsAvailability != _LyricsAvailability.available ||
+        _lyricsBundle == null) {
+      setState(() => _showLyrics = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Lyrics could not be loaded right now.')),
+      );
+      return;
+    }
+    setState(() => _showLyrics = !_showLyrics);
   }
+}
+
+enum _LyricsAvailability { loading, available, unavailable, error }
+
+class _LyricsSection extends StatelessWidget {
+  const _LyricsSection({required this.bundle});
+
+  final LyricsBundle bundle;
 
   @override
   Widget build(BuildContext context) {
     final palette = AppColors.of(context);
-    return FutureBuilder<LyricsBundle>(
-      future: _lyricsFuture,
-      builder: (context, lyricsSnapshot) {
-        if (lyricsSnapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (lyricsSnapshot.hasError || !lyricsSnapshot.hasData) {
-          return const StateScaffold(
-            icon: Icons.lyrics_outlined,
-            title: 'Lyrics unavailable',
-            message: 'Lyrics could not be loaded right now.',
-          );
-        }
-
-        final bundle = lyricsSnapshot.data!;
-        if (!bundle.hasAny) {
-          return const StateScaffold(
-            icon: Icons.lyrics_outlined,
-            title: 'Lyrics unavailable',
-            message:
-                'No synced or plain lyrics were found from the current source or fallback search.',
-          );
-        }
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    bundle.hasSynced ? 'Synced Lyrics' : 'Lyrics',
-                    style: Theme.of(context).textTheme.titleLarge,
+            Expanded(
+              child: Text(
+                bundle.hasSynced ? 'Synced Lyrics' : 'Lyrics',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            if (bundle.usedFallback)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: palette.accentSoft,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  bundle.sourceLabel,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: palette.accent,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                if (bundle.usedFallback)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: palette.accentSoft,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      bundle.sourceLabel,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: palette.accent,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (bundle.hasSynced)
-              _SyncedLyricsView(lines: bundle.synced!.lines)
-            else
-              Text(
-                bundle.plain!.lyrics,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(height: 1.8),
               ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 12),
+        if (bundle.hasSynced)
+          _SyncedLyricsView(lines: bundle.synced!.lines)
+        else
+          Text(
+            bundle.plain!.lyrics,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.8),
+          ),
+      ],
     );
   }
 }
