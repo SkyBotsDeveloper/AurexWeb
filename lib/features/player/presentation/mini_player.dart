@@ -65,12 +65,7 @@ class MiniPlayer extends ConsumerWidget {
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(24),
                       ),
-                      child: LinearProgressIndicator(
-                        minHeight: 3,
-                        value: progress,
-                        backgroundColor: palette.surfaceInset,
-                        valueColor: AlwaysStoppedAnimation(palette.accent),
-                      ),
+                      child: _MiniPlayerProgress(progress: progress),
                     ),
                     Padding(
                       padding: EdgeInsets.fromLTRB(
@@ -81,18 +76,31 @@ class MiniPlayer extends ConsumerWidget {
                       ),
                       child: Row(
                         children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: SizedBox(
-                              width: ultraCompact ? 42 : (compact ? 46 : 52),
-                              height: ultraCompact ? 42 : (compact ? 46 : 52),
-                              child: NetworkArtwork(
-                                imageUrl: track.artworkUrl,
-                                cleanArtworkQuery: track.title,
-                                cleanArtworkType: 'song',
-                                cleanArtworkSubtitle: track.artistNames,
-                                fallbackIcon: Icons.music_note_rounded,
-                                iconSize: 26,
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: palette.shadow.withAlpha(70),
+                                  blurRadius: 14,
+                                  spreadRadius: -6,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: SizedBox(
+                                width: ultraCompact ? 42 : (compact ? 46 : 52),
+                                height: ultraCompact ? 42 : (compact ? 46 : 52),
+                                child: NetworkArtwork(
+                                  imageUrl: track.artworkUrl,
+                                  cleanArtworkQuery: track.title,
+                                  cleanArtworkType: 'song',
+                                  cleanArtworkSubtitle: track.artistNames,
+                                  fallbackIcon: Icons.music_note_rounded,
+                                  iconSize: 26,
+                                ),
                               ),
                             ),
                           ),
@@ -144,7 +152,7 @@ class MiniPlayer extends ConsumerWidget {
                                 ? null
                                 : controller.togglePlayPause,
                             style: FilledButton.styleFrom(
-                              backgroundColor: palette.accent.withAlpha(36),
+                              backgroundColor: palette.accent.withAlpha(46),
                               foregroundColor: palette.textPrimary,
                               minimumSize: Size(
                                 ultraCompact ? 38 : (compact ? 42 : 46),
@@ -193,6 +201,56 @@ class MiniPlayer extends ConsumerWidget {
           },
         );
       },
+    );
+  }
+}
+
+class _MiniPlayerProgress extends StatelessWidget {
+  const _MiniPlayerProgress({required this.progress});
+
+  final double progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppColors.of(context);
+    final value = progress.clamp(0.0, 1.0).toDouble();
+
+    return SizedBox(
+      height: 3.5,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: palette.surfaceInset.withAlpha(168),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white.withAlpha(28),
+                  palette.surfaceInset.withAlpha(150),
+                ],
+              ),
+            ),
+          ),
+          FractionallySizedBox(
+            alignment: Alignment.centerLeft,
+            widthFactor: value,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [palette.accent, palette.accentStrong],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: palette.glow.withAlpha(90),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

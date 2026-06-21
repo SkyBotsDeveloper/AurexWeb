@@ -56,94 +56,13 @@ class AppBottomNav extends ConsumerWidget {
                 ),
               ],
             ),
-      child: Row(
-        children: [
-          for (var index = 0; index < items.length; index++)
-            Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () => onTap(index),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  padding: EdgeInsets.symmetric(
-                    vertical: compact ? 8 : 10,
-                    horizontal: compact ? 2 : 4,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: index == currentIndex
-                        ? LinearGradient(
-                            colors: [
-                              palette.accent.withAlpha(isDark ? 42 : 30),
-                              palette.accentStrong.withAlpha(isDark ? 18 : 12),
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          )
-                        : null,
-                    borderRadius: BorderRadius.circular(20),
-                    border: index == currentIndex
-                        ? Border.all(
-                            color: isDark
-                                ? Colors.white.withAlpha(44)
-                                : palette.accent.withAlpha(52),
-                          )
-                        : null,
-                    boxShadow: index == currentIndex
-                        ? [
-                            BoxShadow(
-                              color: palette.glow.withAlpha(isDark ? 34 : 20),
-                              blurRadius: 16,
-                              spreadRadius: -8,
-                              offset: const Offset(0, 6),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          Icon(
-                            items[index].$1,
-                            size: compact ? 22 : 24,
-                            color: index == currentIndex
-                                ? palette.accent
-                                : palette.textSecondary,
-                          ),
-                          if (index == 2 && hasActiveRoom)
-                            const Positioned(
-                              right: -1,
-                              top: -1,
-                              child: _LiveDot(),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          items[index].$2,
-                          maxLines: 1,
-                          style: TextStyle(
-                            fontSize: compact ? 10 : 11,
-                            fontWeight: index == currentIndex
-                                ? FontWeight.w700
-                                : FontWeight.w600,
-                            color: index == currentIndex
-                                ? palette.textPrimary
-                                : palette.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
+      child: _LiquidNavItems(
+        items: items,
+        currentIndex: currentIndex,
+        compact: compact,
+        isDark: isDark,
+        hasActiveRoom: hasActiveRoom,
+        onTap: onTap,
       ),
     );
 
@@ -152,6 +71,224 @@ class AppBottomNav extends ConsumerWidget {
     }
 
     return SafeArea(top: false, child: nav);
+  }
+}
+
+class _LiquidNavItems extends StatelessWidget {
+  const _LiquidNavItems({
+    required this.items,
+    required this.currentIndex,
+    required this.compact,
+    required this.isDark,
+    required this.hasActiveRoom,
+    required this.onTap,
+  });
+
+  final List<(IconData, String)> items;
+  final int currentIndex;
+  final bool compact;
+  final bool isDark;
+  final bool hasActiveRoom;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppColors.of(context);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemWidth = constraints.maxWidth / items.length;
+        final gutter = compact ? 2.0 : 3.0;
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 390),
+              curve: Curves.easeOutCubic,
+              left: currentIndex * itemWidth + gutter,
+              top: compact ? 1 : 0,
+              bottom: compact ? 1 : 0,
+              width: itemWidth - (gutter * 2),
+              child: _LiquidNavIndicator(compact: compact, isDark: isDark),
+            ),
+            Row(
+              children: [
+                for (var index = 0; index < items.length; index++)
+                  Expanded(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () => onTap(index),
+                      child: _LiquidNavItem(
+                        icon: items[index].$1,
+                        label: items[index].$2,
+                        selected: index == currentIndex,
+                        compact: compact,
+                        showLiveDot: index == 2 && hasActiveRoom,
+                        palette: palette,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _LiquidNavIndicator extends StatelessWidget {
+  const _LiquidNavIndicator({required this.compact, required this.isDark});
+
+  final bool compact;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AppColors.of(context);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(compact ? 18 : 20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withAlpha(isDark ? 34 : 122),
+            palette.accent.withAlpha(isDark ? 44 : 30),
+            palette.accentStrong.withAlpha(isDark ? 24 : 16),
+          ],
+          stops: const [0, 0.46, 1],
+        ),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withAlpha(58)
+              : Colors.white.withAlpha(210),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: palette.glow.withAlpha(isDark ? 46 : 24),
+            blurRadius: 20,
+            spreadRadius: -8,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Colors.white.withAlpha(isDark ? 14 : 74),
+            blurRadius: 16,
+            spreadRadius: -10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(compact ? 18 : 20),
+                gradient: RadialGradient(
+                  center: const Alignment(0, -0.18),
+                  radius: 1,
+                  colors: [
+                    Colors.white.withAlpha(isDark ? 26 : 104),
+                    Colors.white.withAlpha(0),
+                    Colors.black.withAlpha(isDark ? 20 : 0),
+                  ],
+                  stops: const [0, 0.62, 1],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            left: 10,
+            right: 10,
+            top: 1,
+            height: 1,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(999),
+                color: Colors.white.withAlpha(isDark ? 96 : 190),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LiquidNavItem extends StatelessWidget {
+  const _LiquidNavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.compact,
+    required this.showLiveDot,
+    required this.palette,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final bool compact;
+  final bool showLiveDot;
+  final AurexPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedScale(
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      scale: selected ? 1.035 : 1,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          vertical: compact ? 8 : 10,
+          horizontal: compact ? 2 : 4,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                TweenAnimationBuilder<Color?>(
+                  tween: ColorTween(
+                    end: selected ? palette.accent : palette.textSecondary,
+                  ),
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, color, _) =>
+                      Icon(icon, size: compact ? 22 : 24, color: color),
+                ),
+                if (showLiveDot)
+                  const Positioned(right: -1, top: -1, child: _LiveDot()),
+              ],
+            ),
+            const SizedBox(height: 4),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: TweenAnimationBuilder<Color?>(
+                tween: ColorTween(
+                  end: selected ? palette.textPrimary : palette.textSecondary,
+                ),
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                builder: (context, color, child) => Text(
+                  label,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: compact ? 10 : 11,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
