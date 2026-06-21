@@ -6,6 +6,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/ambient_background.dart';
 import '../../core/widgets/app_bottom_nav.dart';
 import '../../core/widgets/app_navigation_rail.dart';
+import '../../core/widgets/app_shell_scope.dart';
+import '../../core/widgets/frosted_glass.dart';
 import '../../core/widgets/glass_panel.dart';
 import '../../features/about/presentation/about_screen.dart';
 import '../../features/auth/presentation/auth_screen.dart';
@@ -169,16 +171,19 @@ class _AppShell extends ConsumerWidget {
     final width = viewport.width;
     final compactBottomChrome = width < 430 || viewport.height < 780;
     final wideLayout = width >= 1120;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return ValueListenableBuilder<PlaybackSnapshot>(
       valueListenable: controller.notifier,
       builder: (context, snapshot, _) {
         final hasMiniPlayer = snapshot.currentTrack != null;
+        final systemBottomInset = MediaQuery.paddingOf(context).bottom;
         final reservedBottomSpace = wideLayout
             ? 0.0
-            : (hasMiniPlayer
-                  ? (compactBottomChrome ? 144.0 : 158.0)
-                  : (compactBottomChrome ? 82.0 : 92.0));
+            : (compactBottomChrome ? 68.0 : 76.0) +
+                  (hasMiniPlayer ? (compactBottomChrome ? 69.0 : 81.0) : 0) +
+                  systemBottomInset +
+                  28;
 
         if (wideLayout) {
           return Scaffold(
@@ -237,64 +242,62 @@ class _AppShell extends ConsumerWidget {
         }
 
         return Scaffold(
+          backgroundColor: Colors.transparent,
           body: Stack(
             children: [
               Positioned.fill(
                 child: AmbientBackground(
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: reservedBottomSpace),
+                  child: AppShellScope(
+                    bottomContentInset: reservedBottomSpace,
                     child: navigationShell,
                   ),
                 ),
               ),
               Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
+                left: compactBottomChrome ? 10 : 12,
+                right: compactBottomChrome ? 10 : 12,
+                bottom: compactBottomChrome ? 8 : 12,
                 child: SafeArea(
                   top: false,
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      compactBottomChrome ? 10 : 12,
-                      0,
-                      compactBottomChrome ? 10 : 12,
-                      compactBottomChrome ? 10 : 12,
-                    ),
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: palette.navGradient,
-                        borderRadius: BorderRadius.circular(
-                          compactBottomChrome ? 26 : 30,
-                        ),
-                        border: Border.all(color: palette.border),
-                        boxShadow: [
-                          BoxShadow(
-                            color: palette.shadow.withAlpha(85),
-                            blurRadius: 36,
-                            offset: Offset(0, 20),
-                          ),
-                        ],
-                      ),
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 720),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           if (hasMiniPlayer) ...[
-                            const MiniPlayer(embedded: true),
-                            Divider(
-                              height: 1,
-                              color: palette.border.withAlpha(85),
+                            FrostedGlass(
+                              borderRadius: BorderRadius.circular(
+                                compactBottomChrome ? 22 : 26,
+                              ),
+                              blurSigma: 22,
+                              tintColor: isDark
+                                  ? palette.surfaceElevated.withAlpha(188)
+                                  : Colors.white.withAlpha(204),
+                              child: const MiniPlayer(embedded: true),
                             ),
+                            SizedBox(height: compactBottomChrome ? 7 : 9),
                           ],
-                          AppBottomNav(
-                            currentIndex: navigationShell.currentIndex,
-                            embedded: true,
-                            onTap: (index) {
-                              navigationShell.goBranch(
-                                index,
-                                initialLocation:
-                                    index == navigationShell.currentIndex,
-                              );
-                            },
+                          FrostedGlass(
+                            borderRadius: BorderRadius.circular(
+                              compactBottomChrome ? 26 : 30,
+                            ),
+                            blurSigma: 18,
+                            tintColor: isDark
+                                ? palette.surface.withAlpha(148)
+                                : Colors.white.withAlpha(172),
+                            child: AppBottomNav(
+                              currentIndex: navigationShell.currentIndex,
+                              embedded: true,
+                              onTap: (index) {
+                                navigationShell.goBranch(
+                                  index,
+                                  initialLocation:
+                                      index == navigationShell.currentIndex,
+                                );
+                              },
+                            ),
                           ),
                         ],
                       ),

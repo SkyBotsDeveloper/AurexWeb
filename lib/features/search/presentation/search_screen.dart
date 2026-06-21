@@ -8,6 +8,7 @@ import '../../../core/logging/app_logger.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/artwork_card.dart';
+import '../../../core/widgets/app_shell_scope.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/screen_intro_panel.dart';
@@ -583,7 +584,12 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
     return Scaffold(
       body: ListView(
-        padding: EdgeInsets.fromLTRB(20, isCompact ? 18 : 24, 20, 32),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          isCompact ? 18 : 24,
+          20,
+          AppShellScope.bottomInsetOf(context, fallback: 32),
+        ),
         children: [
           ScreenIntroPanel(
             compact: isCompact,

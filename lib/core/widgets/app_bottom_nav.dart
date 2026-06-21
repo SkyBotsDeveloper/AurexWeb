@@ -19,6 +19,7 @@ class AppBottomNav extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final palette = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final hasActiveRoom = ref
         .watch(roomSessionControllerProvider)
         .hasActiveRoom;
@@ -73,16 +74,30 @@ class AppBottomNav extends ConsumerWidget {
                     gradient: index == currentIndex
                         ? LinearGradient(
                             colors: [
-                              palette.accentSoft,
-                              palette.glow.withAlpha(18),
+                              palette.accent.withAlpha(isDark ? 42 : 30),
+                              palette.accentStrong.withAlpha(isDark ? 18 : 12),
                             ],
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
                           )
                         : null,
                     borderRadius: BorderRadius.circular(20),
                     border: index == currentIndex
-                        ? Border.all(color: palette.border)
+                        ? Border.all(
+                            color: isDark
+                                ? Colors.white.withAlpha(44)
+                                : palette.accent.withAlpha(52),
+                          )
+                        : null,
+                    boxShadow: index == currentIndex
+                        ? [
+                            BoxShadow(
+                              color: palette.glow.withAlpha(isDark ? 34 : 20),
+                              blurRadius: 16,
+                              spreadRadius: -8,
+                              offset: const Offset(0, 6),
+                            ),
+                          ]
                         : null,
                   ),
                   child: Column(

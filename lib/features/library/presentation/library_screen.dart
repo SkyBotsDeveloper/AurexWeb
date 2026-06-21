@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/error_messages.dart';
+import '../../../core/widgets/app_shell_scope.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/network_artwork.dart';
 import '../../../core/widgets/screen_intro_panel.dart';
@@ -922,7 +923,7 @@ class _LibraryEmptyState extends StatelessWidget {
             compact ? 16 : 20,
             compact ? 8 : 12,
             compact ? 16 : 20,
-            24,
+            AppShellScope.bottomInsetOf(context),
           ),
           child: ConstrainedBox(
             constraints: BoxConstraints(
@@ -1061,7 +1062,7 @@ EdgeInsets _libraryContentPadding(BuildContext context) {
     compact ? 16 : 20,
     compact ? 8 : 0,
     compact ? 16 : 20,
-    24,
+    AppShellScope.bottomInsetOf(context),
   );
 }
 

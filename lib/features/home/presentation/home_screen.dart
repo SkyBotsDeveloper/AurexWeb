@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/error_messages.dart';
 import '../../../core/widgets/artwork_card.dart';
+import '../../../core/widgets/app_shell_scope.dart';
 import '../../../core/widgets/async_value_view.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/network_artwork.dart';
@@ -158,7 +159,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 : items.first.items.first;
 
             return ListView(
-              padding: EdgeInsets.fromLTRB(20, isCompact ? 18 : 24, 20, 32),
+              padding: EdgeInsets.fromLTRB(
+                20,
+                isCompact ? 18 : 24,
+                20,
+                AppShellScope.bottomInsetOf(context, fallback: 32),
+              ),
               children: [
                 _HomeHero(
                   featuredItem: featuredItem,
@@ -339,7 +345,12 @@ class _HomeSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(20, isCompact ? 18 : 24, 20, 32),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        isCompact ? 18 : 24,
+        20,
+        AppShellScope.bottomInsetOf(context, fallback: 32),
+      ),
       children: [
         GlassPanel(
           padding: const EdgeInsets.all(20),

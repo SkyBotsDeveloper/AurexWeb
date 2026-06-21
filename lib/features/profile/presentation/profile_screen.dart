@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/error_messages.dart';
+import '../../../core/widgets/app_shell_scope.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/state_scaffold.dart';
 import '../../auth/data/auth_repository.dart';
@@ -14,9 +15,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
-    final bottomPadding = MediaQuery.sizeOf(context).width >= 1120
-        ? 32.0
-        : 140.0;
+    final bottomPadding = AppShellScope.bottomInsetOf(context, fallback: 32);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),

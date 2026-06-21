@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/error_messages.dart';
+import '../../../core/widgets/app_shell_scope.dart';
 import '../../../core/widgets/glass_panel.dart';
 import '../../../core/widgets/screen_intro_panel.dart';
 import '../../../core/widgets/state_scaffold.dart';
@@ -34,9 +35,7 @@ class _RoomsScreenState extends ConsumerState<RoomsScreen> {
     final authState = ref.watch(authStateProvider);
     final repo = ref.watch(roomRepositoryProvider);
     final roomSession = ref.watch(roomSessionControllerProvider);
-    final bottomPadding = MediaQuery.sizeOf(context).width >= 1120
-        ? 32.0
-        : 140.0;
+    final bottomPadding = AppShellScope.bottomInsetOf(context, fallback: 32);
 
     if (!repo.isConfigured) {
       return const Scaffold(
