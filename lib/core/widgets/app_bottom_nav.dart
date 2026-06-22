@@ -162,31 +162,31 @@ class _LiquidNavIndicator extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withAlpha(isDark ? 58 : 138),
-            palette.accent.withAlpha(isDark ? 48 : 30),
-            palette.accentStrong.withAlpha(isDark ? 38 : 22),
-            Colors.white.withAlpha(isDark ? 16 : 74),
+            Colors.white.withAlpha(isDark ? 78 : 150),
+            palette.accent.withAlpha(isDark ? 32 : 24),
+            palette.accentStrong.withAlpha(isDark ? 26 : 18),
+            Colors.white.withAlpha(isDark ? 24 : 82),
           ],
-          stops: const [0, 0.4, 0.72, 1],
+          stops: const [0, 0.36, 0.72, 1],
         ),
         border: Border.all(
           color: isDark
-              ? Colors.white.withAlpha(42)
-              : Colors.white.withAlpha(190),
-          width: 0.8,
+              ? Colors.white.withAlpha(58)
+              : Colors.white.withAlpha(204),
+          width: 0.75,
         ),
         boxShadow: [
           BoxShadow(
-            color: palette.glow.withAlpha(isDark ? 50 : 26),
-            blurRadius: 28,
-            spreadRadius: -9,
-            offset: const Offset(0, 9),
+            color: palette.glow.withAlpha(isDark ? 34 : 20),
+            blurRadius: 18,
+            spreadRadius: -8,
+            offset: const Offset(0, 7),
           ),
           BoxShadow(
-            color: Colors.white.withAlpha(isDark ? 28 : 82),
-            blurRadius: 18,
-            spreadRadius: -11,
-            offset: const Offset(0, -6),
+            color: Colors.white.withAlpha(isDark ? 34 : 92),
+            blurRadius: 12,
+            spreadRadius: -9,
+            offset: const Offset(0, -4),
           ),
         ],
       ),
@@ -200,11 +200,26 @@ class _LiquidNavIndicator extends StatelessWidget {
                   center: const Alignment(0, -0.24),
                   radius: 0.92,
                   colors: [
-                    Colors.white.withAlpha(isDark ? 62 : 132),
+                    Colors.white.withAlpha(isDark ? 82 : 146),
+                    Colors.white.withAlpha(0),
+                    Colors.black.withAlpha(isDark ? 4 : 0),
+                  ],
+                  stops: const [0, 0.72, 1],
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(compact ? 20 : 22),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.white.withAlpha(isDark ? 22 : 54),
                     Colors.white.withAlpha(0),
                     Colors.black.withAlpha(isDark ? 10 : 0),
                   ],
-                  stops: const [0, 0.68, 1],
+                  stops: const [0, 0.46, 1],
                 ),
               ),
             ),
