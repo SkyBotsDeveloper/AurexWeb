@@ -104,8 +104,8 @@ class _LiquidNavItems extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 390),
-              curve: Curves.easeOutCubic,
+              duration: const Duration(milliseconds: 460),
+              curve: Curves.easeOutBack,
               left: currentIndex * itemWidth + gutter,
               top: compact ? 1 : 0,
               bottom: compact ? 1 : 0,
@@ -156,8 +156,8 @@ class _LiquidNavIndicator extends StatelessWidget {
           end: Alignment.bottomRight,
           colors: [
             Colors.white.withAlpha(isDark ? 34 : 122),
-            palette.accent.withAlpha(isDark ? 44 : 30),
-            palette.accentStrong.withAlpha(isDark ? 24 : 16),
+            palette.accent.withAlpha(isDark ? 54 : 34),
+            palette.accentStrong.withAlpha(isDark ? 34 : 20),
           ],
           stops: const [0, 0.46, 1],
         ),
@@ -169,7 +169,7 @@ class _LiquidNavIndicator extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: palette.glow.withAlpha(isDark ? 46 : 24),
-            blurRadius: 20,
+            blurRadius: 24,
             spreadRadius: -8,
             offset: const Offset(0, 8),
           ),
@@ -191,9 +191,9 @@ class _LiquidNavIndicator extends StatelessWidget {
                   center: const Alignment(0, -0.18),
                   radius: 1,
                   colors: [
-                    Colors.white.withAlpha(isDark ? 26 : 104),
+                    Colors.white.withAlpha(isDark ? 38 : 116),
                     Colors.white.withAlpha(0),
-                    Colors.black.withAlpha(isDark ? 20 : 0),
+                    Colors.black.withAlpha(isDark ? 28 : 0),
                   ],
                   stops: const [0, 0.62, 1],
                 ),

@@ -96,38 +96,66 @@ void main() {
     },
   );
 
-  test(
-    'failed suggestion fetch is ignored and not retried for one anchor',
-    () async {
-      var fetchCalls = 0;
-      var appendCalls = 0;
-      final extender = AutoplayQueueExtender(
-        loadSuggestions: (seed, queue, limit) async {
-          fetchCalls += 1;
-          throw StateError('suggestions unavailable');
-        },
-        appendSuggestions: (tracks, expectedCurrentTrackId) async {
-          appendCalls += 1;
-        },
-        isEnabled: () => true,
-        canExtend: () => true,
-        logger: Logger(),
-      );
-      final queue = [track('seed')];
+  test('empty suggestion attempt can retry after backoff', () async {
+    var now = DateTime(2026);
+    var fetchCalls = 0;
+    final appended = <Track>[];
+    final extender = AutoplayQueueExtender(
+      loadSuggestions: (seed, queue, limit) async {
+        fetchCalls += 1;
+        return fetchCalls == 1 ? const [] : [track('related-after-retry')];
+      },
+      appendSuggestions: (tracks, expectedCurrentTrackId) async {
+        appended.addAll(tracks);
+      },
+      isEnabled: () => true,
+      canExtend: () => true,
+      logger: Logger(),
+      now: () => now,
+      emptyRetryDelay: const Duration(seconds: 30),
+    );
+    final queue = [track('seed')];
 
-      expect(await extender.maybeExtend(queue: queue, currentIndex: 0), isTrue);
-      expect(
-        await extender.maybeExtend(queue: queue, currentIndex: 0),
-        isFalse,
-      );
-      expect(fetchCalls, 1);
-      expect(appendCalls, 0);
+    expect(await extender.maybeExtend(queue: queue, currentIndex: 0), isTrue);
+    expect(await extender.maybeExtend(queue: queue, currentIndex: 0), isFalse);
+    now = now.add(const Duration(seconds: 31));
+    expect(await extender.maybeExtend(queue: queue, currentIndex: 0), isTrue);
 
-      extender.reset();
-      expect(await extender.maybeExtend(queue: queue, currentIndex: 0), isTrue);
-      expect(fetchCalls, 2);
-    },
-  );
+    expect(fetchCalls, 2);
+    expect(appended.map((item) => item.id), ['related-after-retry']);
+  });
+
+  test('failed suggestion attempt can retry after backoff', () async {
+    var now = DateTime(2026);
+    var fetchCalls = 0;
+    final appended = <Track>[];
+    final extender = AutoplayQueueExtender(
+      loadSuggestions: (seed, queue, limit) async {
+        fetchCalls += 1;
+        if (fetchCalls == 1) {
+          throw StateError('temporary suggestions failure');
+        }
+        return [track('related-after-error')];
+      },
+      appendSuggestions: (tracks, expectedCurrentTrackId) async {
+        appended.addAll(tracks);
+      },
+      isEnabled: () => true,
+      canExtend: () => true,
+      logger: Logger(),
+      now: () => now,
+      emptyRetryDelay: const Duration(seconds: 30),
+    );
+    final queue = [track('seed')];
+
+    expect(await extender.maybeExtend(queue: queue, currentIndex: 0), isTrue);
+    expect(await extender.maybeExtend(queue: queue, currentIndex: 0), isFalse);
+    now = now.add(const Duration(seconds: 31));
+    expect(await extender.maybeExtend(queue: queue, currentIndex: 0), isTrue);
+
+    expect(fetchCalls, 2);
+    expect(appended.map((item) => item.id), ['related-after-error']);
+  });
 
   test('deduplication covers id, external id, and title plus artist', () {
     final existing = track(
@@ -156,6 +184,43 @@ void main() {
     final unique = filterUniqueAutoplayTracks(candidates, [existing]);
 
     expect(unique.map((item) => item.id), ['unique']);
+  });
+
+  test('same-title variants are rejected even with upload wording', () {
+    final seed = track(
+      'seed',
+      title: 'Shape of You',
+      artist: 'Ed Sheeran',
+      source: 'aurex',
+      externalId: 'seed-video',
+    );
+    final candidates = [
+      track(
+        'lyrics-upload',
+        title: 'Shape of You Official Lyrics',
+        artist: 'Fan Uploads',
+        source: 'aurex',
+        externalId: 'lyrics-video',
+      ),
+      track(
+        'live-upload',
+        title: 'Shape of You Live Version',
+        artist: 'Concert Channel',
+        source: 'aurex',
+        externalId: 'live-video',
+      ),
+      track(
+        'related',
+        title: 'Perfect',
+        artist: 'Ed Sheeran',
+        source: 'aurex',
+        externalId: 'related-video',
+      ),
+    ];
+
+    final unique = filterUniqueAutoplayTracks(candidates, [seed]);
+
+    expect(unique.map((item) => item.id), ['related']);
   });
 
   test(
@@ -203,8 +268,8 @@ void main() {
 
       expect(primary.map((item) => item.id), ['primary-related']);
       expect(online.map((item) => item.id), ['aurex-online-related']);
-      expect(musicRepository.searchCalls, 1);
-      expect(aurexClient.searchCalls, 1);
+      expect(musicRepository.searchCalls, greaterThanOrEqualTo(1));
+      expect(aurexClient.searchCalls, greaterThanOrEqualTo(1));
     },
   );
 
@@ -242,14 +307,73 @@ void main() {
       ]);
     },
   );
+
+  test(
+    'recommendation service prefers vibe-related songs over same-title versions',
+    () async {
+      final aurexClient = _FakeAurexApiClient(
+        const [],
+        byQuery: {
+          'Seed Artist romantic songs': [
+            onlineSong(
+              'same-lyrics',
+              title: 'Tum Prem Love Official Lyrics',
+              artist: 'Lyrics Channel',
+            ),
+            onlineSong(
+              'romantic-related',
+              title: 'Romantic Dil Night',
+              artist: 'Seed Artist',
+            ),
+          ],
+          'romantic songs': [
+            onlineSong(
+              'romantic-second',
+              title: 'Mohabbat Rain',
+              artist: 'Other Artist',
+            ),
+          ],
+        },
+      );
+      final service = AutoplayRecommendationService(
+        _FakeMusicRepository(
+          results: const SearchResults(
+            topQuery: [],
+            songs: [],
+            albums: [],
+            artists: [],
+            playlists: [],
+          ),
+          tracks: const {},
+        ),
+        aurexClient,
+        Logger(),
+      );
+      final seed = track(
+        'aurex-seed',
+        title: 'Tum Prem Love',
+        artist: 'Seed Artist',
+        source: 'aurex',
+        externalId: 'seed-video',
+      );
+
+      final suggestions = await service.loadSuggestions(seed, [seed], 2);
+
+      expect(aurexClient.queries.first, 'Seed Artist romantic songs');
+      expect(suggestions.map((track) => track.id), [
+        'aurex-romantic-related',
+        'aurex-romantic-second',
+      ]);
+    },
+  );
 }
 
-AurexSong onlineSong(String videoId) {
+AurexSong onlineSong(String videoId, {String? title, String? artist}) {
   return AurexSong(
     id: 'aurex-$videoId',
-    title: 'Song $videoId',
-    artist: 'Online Artist',
-    channel: 'Online Artist',
+    title: title ?? 'Song $videoId',
+    artist: artist ?? 'Online Artist',
+    channel: artist ?? 'Online Artist',
     duration: '3:00',
     thumbnail: null,
     image: null,
@@ -319,10 +443,12 @@ class _FakeMusicRepository extends MusicRepository {
 
   final SearchResults results;
   final Map<String, Track> tracks;
+  final List<String> queries = [];
   int searchCalls = 0;
 
   @override
   Future<SearchResults> searchAll(String query) async {
+    queries.add(query);
     searchCalls += 1;
     return results;
   }
@@ -332,9 +458,12 @@ class _FakeMusicRepository extends MusicRepository {
 }
 
 class _FakeAurexApiClient extends AurexApiClient {
-  _FakeAurexApiClient(this.results) : super(Dio(), Logger());
+  _FakeAurexApiClient(this.results, {this.byQuery = const {}})
+    : super(Dio(), Logger());
 
   final List<AurexSong> results;
+  final Map<String, List<AurexSong>> byQuery;
+  final List<String> queries = [];
   int searchCalls = 0;
 
   @override
@@ -344,7 +473,8 @@ class _FakeAurexApiClient extends AurexApiClient {
     CancelToken? cancelToken,
     bool forceRefresh = false,
   }) async {
+    queries.add(query);
     searchCalls += 1;
-    return results.take(limit).toList(growable: false);
+    return (byQuery[query] ?? results).take(limit).toList(growable: false);
   }
 }
