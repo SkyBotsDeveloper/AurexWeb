@@ -27,11 +27,11 @@ class FrostedGlass extends StatelessWidget {
     final tint =
         tintColor ??
         (isDark
-            ? palette.surfaceElevated.withAlpha(118)
-            : Colors.white.withAlpha(138));
+            ? palette.surfaceElevated.withAlpha(92)
+            : Colors.white.withAlpha(120));
     final borderColor = isDark
-        ? Colors.white.withAlpha(52)
-        : Colors.white.withAlpha(232);
+        ? Colors.white.withAlpha(42)
+        : Colors.white.withAlpha(210);
 
     return RepaintBoundary(
       child: DecoratedBox(
@@ -39,16 +39,16 @@ class FrostedGlass extends StatelessWidget {
           borderRadius: borderRadius,
           boxShadow: [
             BoxShadow(
-              color: palette.shadow.withAlpha(isDark ? 132 : 54),
-              blurRadius: 38,
-              spreadRadius: -11,
-              offset: const Offset(0, 20),
+              color: palette.shadow.withAlpha(isDark ? 118 : 48),
+              blurRadius: 42,
+              spreadRadius: -14,
+              offset: const Offset(0, 22),
             ),
             BoxShadow(
-              color: palette.accent.withAlpha(isDark ? 38 : 22),
-              blurRadius: 34,
-              spreadRadius: -18,
-              offset: const Offset(0, 11),
+              color: palette.accent.withAlpha(isDark ? 30 : 18),
+              blurRadius: 38,
+              spreadRadius: -20,
+              offset: const Offset(0, 13),
             ),
           ],
         ),
@@ -67,12 +67,12 @@ class FrostedGlass extends StatelessWidget {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Colors.white.withAlpha(isDark ? 34 : 116),
-                          tint.withAlpha(isDark ? 104 : 126),
-                          palette.accentStrong.withAlpha(isDark ? 22 : 12),
-                          Colors.black.withAlpha(isDark ? 24 : 0),
+                          Colors.white.withAlpha(isDark ? 48 : 120),
+                          tint.withAlpha(isDark ? 74 : 112),
+                          palette.accentStrong.withAlpha(isDark ? 24 : 14),
+                          Colors.black.withAlpha(isDark ? 13 : 0),
                         ],
-                        stops: const [0, 0.38, 0.72, 1],
+                        stops: const [0, 0.34, 0.74, 1],
                       ),
                     ),
                   ),
@@ -85,11 +85,11 @@ class FrostedGlass extends StatelessWidget {
                         center: const Alignment(0, -0.08),
                         radius: 1.08,
                         colors: [
-                          Colors.white.withAlpha(isDark ? 24 : 64),
+                          Colors.white.withAlpha(isDark ? 38 : 72),
                           Colors.white.withAlpha(0),
-                          Colors.black.withAlpha(isDark ? 44 : 0),
+                          Colors.black.withAlpha(isDark ? 22 : 0),
                         ],
-                        stops: const [0, 0.58, 1],
+                        stops: const [0, 0.64, 1],
                       ),
                     ),
                   ),
@@ -104,11 +104,11 @@ class FrostedGlass extends StatelessWidget {
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.white.withAlpha(isDark ? 28 : 74),
+                            Colors.white.withAlpha(isDark ? 36 : 82),
                             Colors.white.withAlpha(0),
-                            Colors.black.withAlpha(isDark ? 26 : 0),
+                            Colors.black.withAlpha(isDark ? 18 : 0),
                           ],
-                          stops: const [0, 0.34, 1],
+                          stops: const [0, 0.38, 1],
                         ),
                       ),
                     ),
@@ -119,7 +119,7 @@ class FrostedGlass extends StatelessWidget {
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         borderRadius: borderRadius,
-                        border: Border.all(color: borderColor, width: 1.15),
+                        border: Border.all(color: borderColor, width: 0.9),
                       ),
                     ),
                   ),
@@ -128,7 +128,7 @@ class FrostedGlass extends StatelessWidget {
                   left: 10,
                   right: 10,
                   top: 1,
-                  height: 1.8,
+                  height: 2.2,
                   child: IgnorePointer(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
@@ -136,7 +136,7 @@ class FrostedGlass extends StatelessWidget {
                         gradient: LinearGradient(
                           colors: [
                             Colors.white.withAlpha(0),
-                            Colors.white.withAlpha(isDark ? 150 : 220),
+                            Colors.white.withAlpha(isDark ? 168 : 228),
                             Colors.white.withAlpha(0),
                           ],
                         ),

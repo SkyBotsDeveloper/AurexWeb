@@ -53,7 +53,9 @@ class MiniPlayer extends ConsumerWidget {
                     ? Colors.transparent
                     : palette.surfaceElevated.withAlpha(245),
                 borderRadius: BorderRadius.circular(24),
-                border: embedded ? null : Border.all(color: palette.border),
+                border: embedded
+                    ? null
+                    : Border.all(color: palette.border.withAlpha(190)),
               ),
               child: InkWell(
                 borderRadius: BorderRadius.circular(24),
@@ -152,7 +154,9 @@ class MiniPlayer extends ConsumerWidget {
                                 ? null
                                 : controller.togglePlayPause,
                             style: FilledButton.styleFrom(
-                              backgroundColor: palette.accent.withAlpha(46),
+                              backgroundColor: palette.accent.withAlpha(
+                                embedded ? 34 : 46,
+                              ),
                               foregroundColor: palette.textPrimary,
                               minimumSize: Size(
                                 ultraCompact ? 38 : (compact ? 42 : 46),
@@ -160,6 +164,11 @@ class MiniPlayer extends ConsumerWidget {
                               ),
                               padding: EdgeInsets.zero,
                               shape: RoundedRectangleBorder(
+                                side: embedded
+                                    ? BorderSide(
+                                        color: Colors.white.withAlpha(30),
+                                      )
+                                    : BorderSide.none,
                                 borderRadius: BorderRadius.circular(
                                   ultraCompact ? 14 : 16,
                                 ),

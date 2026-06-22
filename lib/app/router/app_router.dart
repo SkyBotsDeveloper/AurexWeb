@@ -271,10 +271,10 @@ class _AppShell extends ConsumerWidget {
                               borderRadius: BorderRadius.circular(
                                 compactBottomChrome ? 22 : 26,
                               ),
-                              blurSigma: 15,
+                              blurSigma: 13.5,
                               tintColor: isDark
-                                  ? palette.surfaceElevated.withAlpha(138)
-                                  : Colors.white.withAlpha(166),
+                                  ? palette.surfaceElevated.withAlpha(112)
+                                  : Colors.white.withAlpha(150),
                               child: const MiniPlayer(embedded: true),
                             ),
                             SizedBox(height: compactBottomChrome ? 7 : 9),
@@ -283,10 +283,10 @@ class _AppShell extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(
                               compactBottomChrome ? 26 : 30,
                             ),
-                            blurSigma: 13,
+                            blurSigma: 11.5,
                             tintColor: isDark
-                                ? palette.surface.withAlpha(84)
-                                : Colors.white.withAlpha(122),
+                                ? palette.surface.withAlpha(54)
+                                : Colors.white.withAlpha(104),
                             child: AppBottomNav(
                               currentIndex: navigationShell.currentIndex,
                               embedded: true,

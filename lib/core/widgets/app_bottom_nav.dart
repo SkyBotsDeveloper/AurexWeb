@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -37,9 +39,9 @@ class AppBottomNav extends ConsumerWidget {
           ? EdgeInsets.zero
           : const EdgeInsets.fromLTRB(14, 0, 14, 14),
       padding: EdgeInsets.fromLTRB(
-        embedded ? 6 : 8,
-        embedded ? 6 : 8,
-        embedded ? 6 : 8,
+        embedded ? 7 : 8,
+        embedded ? 7 : 8,
+        embedded ? 7 : 8,
         embedded ? 8 : 8,
       ),
       decoration: embedded
@@ -98,18 +100,23 @@ class _LiquidNavItems extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final itemWidth = constraints.maxWidth / items.length;
-        final gutter = compact ? 2.0 : 3.0;
+        final indicatorWidth = math.min(
+          itemWidth - (compact ? 12 : 16),
+          compact ? 74.0 : 88.0,
+        );
+        final indicatorLeft =
+            (currentIndex * itemWidth) + ((itemWidth - indicatorWidth) / 2);
 
         return Stack(
           clipBehavior: Clip.none,
           children: [
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 460),
-              curve: Curves.easeOutBack,
-              left: currentIndex * itemWidth + gutter,
-              top: compact ? 1 : 0,
-              bottom: compact ? 1 : 0,
-              width: itemWidth - (gutter * 2),
+              duration: const Duration(milliseconds: 520),
+              curve: Curves.easeOutCubic,
+              left: indicatorLeft,
+              top: compact ? 5 : 6,
+              bottom: compact ? 5 : 6,
+              width: indicatorWidth,
               child: _LiquidNavIndicator(compact: compact, isDark: isDark),
             ),
             Row(
@@ -150,34 +157,36 @@ class _LiquidNavIndicator extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(compact ? 18 : 20),
+        borderRadius: BorderRadius.circular(compact ? 20 : 22),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Colors.white.withAlpha(isDark ? 34 : 122),
-            palette.accent.withAlpha(isDark ? 54 : 34),
-            palette.accentStrong.withAlpha(isDark ? 34 : 20),
+            Colors.white.withAlpha(isDark ? 58 : 138),
+            palette.accent.withAlpha(isDark ? 48 : 30),
+            palette.accentStrong.withAlpha(isDark ? 38 : 22),
+            Colors.white.withAlpha(isDark ? 16 : 74),
           ],
-          stops: const [0, 0.46, 1],
+          stops: const [0, 0.4, 0.72, 1],
         ),
         border: Border.all(
           color: isDark
-              ? Colors.white.withAlpha(58)
-              : Colors.white.withAlpha(210),
+              ? Colors.white.withAlpha(42)
+              : Colors.white.withAlpha(190),
+          width: 0.8,
         ),
         boxShadow: [
           BoxShadow(
-            color: palette.glow.withAlpha(isDark ? 46 : 24),
-            blurRadius: 24,
-            spreadRadius: -8,
-            offset: const Offset(0, 8),
+            color: palette.glow.withAlpha(isDark ? 50 : 26),
+            blurRadius: 28,
+            spreadRadius: -9,
+            offset: const Offset(0, 9),
           ),
           BoxShadow(
-            color: Colors.white.withAlpha(isDark ? 14 : 74),
-            blurRadius: 16,
-            spreadRadius: -10,
-            offset: const Offset(0, -5),
+            color: Colors.white.withAlpha(isDark ? 28 : 82),
+            blurRadius: 18,
+            spreadRadius: -11,
+            offset: const Offset(0, -6),
           ),
         ],
       ),
@@ -186,29 +195,29 @@ class _LiquidNavIndicator extends StatelessWidget {
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(compact ? 18 : 20),
+                borderRadius: BorderRadius.circular(compact ? 20 : 22),
                 gradient: RadialGradient(
-                  center: const Alignment(0, -0.18),
-                  radius: 1,
+                  center: const Alignment(0, -0.24),
+                  radius: 0.92,
                   colors: [
-                    Colors.white.withAlpha(isDark ? 38 : 116),
+                    Colors.white.withAlpha(isDark ? 62 : 132),
                     Colors.white.withAlpha(0),
-                    Colors.black.withAlpha(isDark ? 28 : 0),
+                    Colors.black.withAlpha(isDark ? 10 : 0),
                   ],
-                  stops: const [0, 0.62, 1],
+                  stops: const [0, 0.68, 1],
                 ),
               ),
             ),
           ),
           Positioned(
-            left: 10,
-            right: 10,
+            left: 12,
+            right: 12,
             top: 1,
-            height: 1,
+            height: 1.4,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(999),
-                color: Colors.white.withAlpha(isDark ? 96 : 190),
+                color: Colors.white.withAlpha(isDark ? 128 : 208),
               ),
             ),
           ),
@@ -243,7 +252,7 @@ class _LiquidNavItem extends StatelessWidget {
       scale: selected ? 1.035 : 1,
       child: Padding(
         padding: EdgeInsets.symmetric(
-          vertical: compact ? 8 : 10,
+          vertical: compact ? 8 : 9,
           horizontal: compact ? 2 : 4,
         ),
         child: Column(
@@ -254,7 +263,9 @@ class _LiquidNavItem extends StatelessWidget {
               children: [
                 TweenAnimationBuilder<Color?>(
                   tween: ColorTween(
-                    end: selected ? palette.accent : palette.textSecondary,
+                    end: selected
+                        ? palette.accent
+                        : palette.textSecondary.withAlpha(190),
                   ),
                   duration: const Duration(milliseconds: 220),
                   curve: Curves.easeOutCubic,
@@ -270,7 +281,9 @@ class _LiquidNavItem extends StatelessWidget {
               fit: BoxFit.scaleDown,
               child: TweenAnimationBuilder<Color?>(
                 tween: ColorTween(
-                  end: selected ? palette.textPrimary : palette.textSecondary,
+                  end: selected
+                      ? palette.textPrimary.withAlpha(238)
+                      : palette.textSecondary.withAlpha(178),
                 ),
                 duration: const Duration(milliseconds: 220),
                 curve: Curves.easeOutCubic,
@@ -278,8 +291,8 @@ class _LiquidNavItem extends StatelessWidget {
                   label,
                   maxLines: 1,
                   style: TextStyle(
-                    fontSize: compact ? 10 : 11,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    fontSize: compact ? 9.6 : 10.5,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     color: color,
                   ),
                 ),
